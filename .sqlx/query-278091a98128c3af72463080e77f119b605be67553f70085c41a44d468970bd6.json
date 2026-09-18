@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE users\n        SET reset_password_hash = NULL, password_hash_expire_at = NULL, hash = $1\n        WHERE reset_password_hash = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "278091a98128c3af72463080e77f119b605be67553f70085c41a44d468970bd6"
+}

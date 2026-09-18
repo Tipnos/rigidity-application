@@ -9,6 +9,7 @@ use actix::Actor;
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 pub mod app_conf;
+pub mod database;
 pub mod enums;
 pub mod services;
 pub mod cmd;

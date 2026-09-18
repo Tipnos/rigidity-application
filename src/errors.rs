@@ -92,3 +92,17 @@ impl From<BlockingError> for AppError {
         AppError::InternalServerError(error.to_string())
     }
 }
+
+impl From<sqlx::Error> for AppError {
+    fn from(error: sqlx::Error) -> AppError {
+        match error {
+            sqlx::Error::RowNotFound => {
+                AppError::BadRequest(format!("Database error not found."))
+            },
+            sqlx::Error::Database(db_err) => {
+                AppError::BadRequest(db_err.message().to_string())
+            },
+            _ => AppError::InternalServerError(String::from("Database error")),
+        }
+    }
+}
