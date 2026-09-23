@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE custom_rooms SET matchmaking_ticket = $1 WHERE id = $2",
+  "query": "UPDATE custom_rooms SET matchmaking_ticket = $1 WHERE pk = $2",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "e39c3245328429f2e13074ef6e7d13264c94e951489f39b116977fd4194eea05"
+  "hash": "f673b51561f7eae12b3110438529069d03d94b62b95b9a23b9de41eef5816a29"
 }

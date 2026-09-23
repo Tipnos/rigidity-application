@@ -43,6 +43,7 @@ mod db {
     }
 
     // Log in as one of them with `--dev-login` and POST /api-open/dev-login
+    // with the printed UUID
     async fn insert_test_users() -> Result<(), String> {
         use crate::database::{self, users as user_dao};
         use crate::chrono::NaiveDateTime;

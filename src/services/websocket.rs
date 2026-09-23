@@ -1,5 +1,6 @@
 use axum::{extract::WebSocketUpgrade, response::Response};
 use serde::{Serialize};
+use uuid::Uuid;
 
 mod ws;
 mod lobby;
@@ -9,19 +10,19 @@ pub type WebsocketLobby = lobby::Lobby;
 pub use crate::dto::output::ServerMessageDTO as ServerMessage;
 
 pub struct ForwardMessage {
-    id: i32,
+    id: Uuid,
     message: String,
 }
 
 impl ForwardMessage {
-    pub fn new<T: Serialize>(id: &i32, srv_message: ServerMessage<T>) -> Self {
+    pub fn new<T: Serialize>(id: &Uuid, srv_message: ServerMessage<T>) -> Self {
         ForwardMessage {
             id: *id,
             message: srv_message.to_string()
         }
     }
 
-    pub fn get_id(&self) -> &i32 {
+    pub fn get_id(&self) -> &Uuid {
         &self.id
     }
 
@@ -31,19 +32,19 @@ impl ForwardMessage {
 }
 
 pub struct MultiForwardMessage {
-    ids: Vec<i32>,
+    ids: Vec<Uuid>,
     message: String,
 }
 
 impl MultiForwardMessage {
-    pub fn new<T: Serialize>(ids: &Vec<i32>, srv_message: ServerMessage<T>) -> Self {
+    pub fn new<T: Serialize>(ids: &Vec<Uuid>, srv_message: ServerMessage<T>) -> Self {
         MultiForwardMessage {
             ids: ids.clone(),
             message: srv_message.to_string()
         }
     }
 
-    pub fn get_ids(&self) -> &Vec<i32> {
+    pub fn get_ids(&self) -> &Vec<Uuid> {
         &self.ids
     }
 
@@ -53,19 +54,19 @@ impl MultiForwardMessage {
 }
 
 pub struct BroadcastExceptMessage {
-    ids_to_except: Vec<i32>,
+    ids_to_except: Vec<Uuid>,
     message: String,
 }
 
 impl BroadcastExceptMessage {
-    pub fn new<T: Serialize>(ids_to_except: &Vec<i32>, srv_message: ServerMessage<T>) -> Self {
+    pub fn new<T: Serialize>(ids_to_except: &Vec<Uuid>, srv_message: ServerMessage<T>) -> Self {
         BroadcastExceptMessage {
             ids_to_except: ids_to_except.clone(),
             message: srv_message.to_string()
         }
     }
 
-    pub fn get_ids_to_except(&self) -> &Vec<i32> {
+    pub fn get_ids_to_except(&self) -> &Vec<Uuid> {
         &self.ids_to_except
     }
 
@@ -76,7 +77,7 @@ impl BroadcastExceptMessage {
 
 pub fn new_connection(
     upgrade: WebSocketUpgrade,
-    user_id: i32,
+    user_id: Uuid,
     lobby: WebsocketLobby
 ) -> Response {
     upgrade.on_upgrade(move |socket| ws::run(socket, user_id, lobby))

@@ -57,11 +57,15 @@ Production must set, in addition to the secrets:
 
 Maintenance tasks are subcommands, e.g. `cargo run -- db insert users` inserts test users.
 
+### Ids :
+
+The application only deals in UUIDs (`id` / `*_id`): API, websocket, identity cookie and services. The SERIAL keys (`pk` / `*_pk` columns) never leave the `database` module; the only one read in Rust, `CustomRoomDAO::pk`, is private to it, so the compiler enforces this.
+
 ### Local login without Steam :
 
-Accounts are Steam-only. To log in locally without a Steam ticket, start the server with `--dev-login` (or `DEV_LOGIN=true`), which enables `POST /api-open/dev-login` with a `{"user_id": <id>}` body. Never enable it in production.
+Accounts are Steam-only. To log in locally without a Steam ticket, start the server with `--dev-login` (or `DEV_LOGIN=true`), which enables `POST /api-open/dev-login` with a `{"user_id": "<uuid>"}` body. Never enable it in production.
 
-- cargo run -- db insert users (prints the created user ids)
+- cargo run -- db insert users (prints the created users' UUIDs)
 - cargo run -- --dev-login
-- curl -c jar -H 'content-type: application/json' -d '{"user_id":1}' localhost:8080/api-open/dev-login
+- curl -c jar -H 'content-type: application/json' -d '{"user_id":"<uuid>"}' localhost:8080/api-open/dev-login
 - curl -b jar localhost:8080/api/matchmaking/custom-room

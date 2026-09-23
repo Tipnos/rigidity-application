@@ -11,7 +11,7 @@ use super::{GameModesDTO, MapsDTO};
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UserDTO {
-    pub id: i32,
+    pub id: Uuid,
     pub nickname: String,
     pub steam_id: String,
     pub first_name: String,
@@ -34,9 +34,9 @@ impl From<UserDAO> for UserDTO {
 
 #[derive(Serialize, ToSchema)]
 pub struct CustomRoomDTO {
-    pub id: i32,
+    pub id: Uuid,
     pub label: String,
-    pub user_id: i32,
+    pub user_id: Uuid,
     pub nb_teams: i32,
     pub max_player_per_team: i32,
     pub game_mode: GameModesDTO,
@@ -62,7 +62,7 @@ impl From<(CustomRoomDAO, Vec<(CustomRoomSlotDAO, UserDAO)>)> for CustomRoomDTO 
 }
 
 impl CustomRoomDTO {
-    pub fn get_all_user_ids_except(&self, except_id: &i32) -> Vec<i32> {
+    pub fn get_all_user_ids_except(&self, except_id: &Uuid) -> Vec<Uuid> {
         let mut result = Vec::new();
 
         for slot in &self.slots {
@@ -74,7 +74,7 @@ impl CustomRoomDTO {
         result
     }
 
-    pub fn get_all_user_ids(&self) -> Vec<i32> {
+    pub fn get_all_user_ids(&self) -> Vec<Uuid> {
         let mut result = Vec::new();
 
         for slot in &self.slots {
@@ -84,7 +84,7 @@ impl CustomRoomDTO {
         result
     }
 
-    pub fn get_slot_index_from_user_id(&self, user_id: &i32) -> Option<usize> {
+    pub fn get_slot_index_from_user_id(&self, user_id: &Uuid) -> Option<usize> {
         let mut i = 0;
         for slot in &self.slots {
             if slot.user_id == *user_id {
@@ -100,11 +100,11 @@ impl CustomRoomDTO {
 
 #[derive(Serialize, ToSchema)]
 pub struct CustomRoomSlotDTO {
-    pub id: i32,
-    pub custom_room_id: i32,
+    pub id: Uuid,
+    pub custom_room_id: Uuid,
     pub team: i32,
     pub team_position: i32,
-    pub user_id: i32,
+    pub user_id: Uuid,
     pub nickname: String,
     pub archetype: u32,
 }
@@ -149,12 +149,12 @@ impl<'a, T: Serialize> ServerMessageDTO<'a, T> {
 
 #[derive(Serialize)]
 pub struct UserIdDTO {
-    pub user_id: i32,
+    pub user_id: Uuid,
 }
 
 #[derive(Serialize)]
 pub struct SlotSwitchedDTO {
-    pub user_id: i32,
+    pub user_id: Uuid,
     pub nickname: String,
     pub team: i32,
     pub team_position: i32,
@@ -162,7 +162,7 @@ pub struct SlotSwitchedDTO {
 
 #[derive(Serialize)]
 pub struct ArchetypeSwitchedDTO {
-    pub user_id: i32,
+    pub user_id: Uuid,
     pub archetype: u32,
 }
 
@@ -210,8 +210,9 @@ mod tests {
     #[test]
     fn user_dto_only_exposes_public_fields() {
         let now = chrono::Utc::now().naive_utc();
+        let id = Uuid::new_v4();
         let user = UserDAO {
-            id: 1,
+            id,
             nickname: String::from("nick"),
             created_at: now,
             steam_id: String::from("42"),
@@ -223,6 +224,7 @@ mod tests {
         let json = serde_json::to_value(UserDTO::from(user)).unwrap();
         let object = json.as_object().unwrap();
         assert!(!object.contains_key("created_at"));
+        assert_eq!(object["id"], id.to_string());
         assert_eq!(object["steam_id"], "42");
     }
 

@@ -1,12 +1,13 @@
 use axum::extract::ws::{Message, WebSocket};
 use super::lobby::Lobby;
 use std::time::{Duration, Instant};
+use uuid::Uuid;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 // Drives a client socket until it closes, fails or misses its heartbeat.
-pub async fn run(mut socket: WebSocket, user_id: i32, lobby: Lobby) {
+pub async fn run(mut socket: WebSocket, user_id: Uuid, lobby: Lobby) {
     let (conn_id, mut outgoing) = lobby.connect(user_id);
     let mut hb = Instant::now();
     let mut heartbeat = tokio::time::interval(HEARTBEAT_INTERVAL);

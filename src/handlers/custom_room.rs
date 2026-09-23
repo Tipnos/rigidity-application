@@ -5,6 +5,7 @@ use crate::dto::input::{CustomRoomSettingsDTO, SwitchSlotDTO};
 use crate::dto::output::CustomRoomDTO;
 use crate::handlers::Identity;
 use crate::services::{custom_room as service, websocket::WebsocketLobby};
+use uuid::Uuid;
 
 #[utoipa::path(
     get,
@@ -84,7 +85,7 @@ pub async fn update(
     put,
     path = "/matchmaking/custom-room/{id}/join",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id")),
+    params(("id" = Uuid, Path, description = "Custom room id")),
     security(("cookie_auth" = [])),
     responses(
         (status = 200, description = "Updated custom room", body = CustomRoomDTO),
@@ -93,7 +94,7 @@ pub async fn update(
     )
 )]
 pub async fn join(
-    Path(custom_room_id): Path<i32>,
+    Path(custom_room_id): Path<Uuid>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>
@@ -111,7 +112,7 @@ pub async fn join(
     put,
     path = "/matchmaking/custom-room/{id}/quit",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id")),
+    params(("id" = Uuid, Path, description = "Custom room id")),
     security(("cookie_auth" = [])),
     responses(
         (status = 200, description = "Updated custom room", body = CustomRoomDTO),
@@ -120,7 +121,7 @@ pub async fn join(
     )
 )]
 pub async fn quit(
-    Path(custom_room_id): Path<i32>,
+    Path(custom_room_id): Path<Uuid>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>
@@ -162,7 +163,7 @@ pub async fn delete(
     put,
     path = "/matchmaking/custom-room/{id}/slot",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id")),
+    params(("id" = Uuid, Path, description = "Custom room id")),
     request_body = SwitchSlotDTO,
     security(("cookie_auth" = [])),
     responses(
@@ -172,7 +173,7 @@ pub async fn delete(
     )
 )]
 pub async fn switch_slot(
-    Path(custom_room_id): Path<i32>,
+    Path(custom_room_id): Path<Uuid>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>,
@@ -192,7 +193,7 @@ pub async fn switch_slot(
     put,
     path = "/matchmaking/custom-room/{id}/select-archetype/{archetype}",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id"),
+    params(("id" = Uuid, Path, description = "Custom room id"),
         ("archetype" = u32, Path, description = "0 = Leader, 1 = Spiker, 2 = Healer, 3 = Assassin")),
     security(("cookie_auth" = [])),
     responses(
@@ -202,7 +203,7 @@ pub async fn switch_slot(
     )
 )]
 pub async fn switch_archetype(
-    Path((custom_room_id, archetype_id)): Path<(i32, u32)>,
+    Path((custom_room_id, archetype_id)): Path<(Uuid, u32)>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>
@@ -226,8 +227,8 @@ pub async fn switch_archetype(
     put,
     path = "/matchmaking/custom-room/{id}/kick/{user_id}",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id"),
-        ("user_id" = i32, Path, description = "Id of the user to kick")),
+    params(("id" = Uuid, Path, description = "Custom room id"),
+        ("user_id" = Uuid, Path, description = "Id of the user to kick")),
     security(("cookie_auth" = [])),
     responses(
         (status = 200, description = "Updated custom room", body = CustomRoomDTO),
@@ -236,7 +237,7 @@ pub async fn switch_archetype(
     )
 )]
 pub async fn kick(
-    Path((custom_room_id, user_id_to_kick)): Path<(i32, i32)>,
+    Path((custom_room_id, user_id_to_kick)): Path<(Uuid, Uuid)>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>
@@ -255,7 +256,7 @@ pub async fn kick(
     put,
     path = "/matchmaking/custom-room/{id}/start-matchmaking",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id")),
+    params(("id" = Uuid, Path, description = "Custom room id")),
     security(("cookie_auth" = [])),
     responses(
         (status = 200, description = "Matchmaking started"),
@@ -264,7 +265,7 @@ pub async fn kick(
     )
 )]
 pub async fn start_matchmaking(
-    Path(custom_room_id): Path<i32>,
+    Path(custom_room_id): Path<Uuid>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>
@@ -289,7 +290,7 @@ pub async fn start_matchmaking(
     put,
     path = "/matchmaking/custom-room/{id}/stop-matchmaking",
     tag = "custom-room",
-    params(("id" = i32, Path, description = "Custom room id")),
+    params(("id" = Uuid, Path, description = "Custom room id")),
     security(("cookie_auth" = [])),
     responses(
         (status = 200, description = "Matchmaking stopped"),
@@ -298,7 +299,7 @@ pub async fn start_matchmaking(
     )
 )]
 pub async fn stop_matchmaking(
-    Path(custom_room_id): Path<i32>,
+    Path(custom_room_id): Path<Uuid>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>
