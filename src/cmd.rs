@@ -42,31 +42,25 @@ mod db {
         }
     }
 
+    // Log in as one of them with `--dev-login` and POST /api-open/dev-login
     async fn insert_test_users() -> Result<(), String> {
         use crate::database::{self, users as user_dao};
-        use crate::services::auth;
         use crate::chrono::NaiveDateTime;
 
         let nb_users = 10;
-        let pass_hash = auth::hash_password("spike").map_err(|e| e.to_string())?;
         let pool = database::connect_database().await;
-        let email_confirmation_hash = "toto";
 
         for i in 0..nb_users {
-            user_dao::create(
-                &format!("{}@spikegames.eu", i),
+            let user = user_dao::create(
                 &format!("Spike{}", i),
                 &format!("{}", i),
                 "Spike",
                 &format!("{}", i),
-                &pass_hash,
                 NaiveDateTime::default(),
-                email_confirmation_hash,
                 &pool,
             ).await.map_err(|e| e.to_string())?;
 
-            user_dao::confirm_email(email_confirmation_hash, &pool)
-                .await.map_err(|e| e.to_string())?;
+            println!("Created user {} (id {})", user.nickname, user.id);
         }
 
         Ok(())

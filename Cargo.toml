@@ -17,15 +17,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 derive_more = "0.99"
 clap = { version = "4", features = ["derive", "env"] }
-rust-argon2="0.8"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-sparkpost="0.5"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-native-tls", "postgres", "macros", "chrono", "uuid"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 time = "0.3.17"
-rand="0.8.1"
 rusoto_core = "0.48.0"
 rusoto_gamelift="0.48.0"
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }

@@ -48,10 +48,10 @@ mod tests {
         let (_, api) = router().split_for_parts();
         let spec = serde_json::to_value(&api).unwrap();
 
-        assert!(spec["paths"]["/api-open/login"]["post"].is_object());
+        assert!(spec["paths"]["/api-open/login-steam"]["post"].is_object());
         assert!(spec["paths"]["/api/matchmaking/custom-room"]["delete"].is_object());
         assert!(spec["paths"]["/api/matchmaking/custom-room/{id}/join"]["put"].is_object());
         assert!(spec["components"]["securitySchemes"][COOKIE_AUTH].is_object());
-        assert_eq!(api.paths.paths.len(), 15);
+        assert_eq!(api.paths.paths.len(), 12);
     }
 }

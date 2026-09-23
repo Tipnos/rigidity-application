@@ -8,9 +8,6 @@ pub type AppResult<R> = Result<R, AppError>;
 
 #[derive(Debug, Display, Serialize)]
 pub enum AppError {
-    #[display(fmt = "Service Unavailable")]
-    ServiceUnavailable(String),
-
     #[display(fmt = "Internal Server Error")]
     InternalServerError(String),
     
@@ -19,17 +16,12 @@ pub enum AppError {
 
     #[display(fmt = "Unauthorized")]
     Unauthorized,
-
-    #[display(fmt = "Forbidden")]
-    Forbidden,
 }
 
 // impl IntoResponse allows to convert our errors into http responses with appropriate data
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match self {
-            AppError::ServiceUnavailable(message) => (StatusCode::SERVICE_UNAVAILABLE,
-                Json(message)).into_response(),
             AppError::InternalServerError(trace) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, Json(trace)).into_response()
             }
@@ -38,9 +30,6 @@ impl IntoResponse for AppError {
             }
             AppError::Unauthorized => {
                 (StatusCode::UNAUTHORIZED, Json("Unauthorized")).into_response()
-            }
-            AppError::Forbidden => {
-                (StatusCode::FORBIDDEN, Json("Forbidden")).into_response()
             }
         }
     }

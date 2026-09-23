@@ -3,7 +3,7 @@ use clap::Parser;
 use std::sync::OnceLock;
 use crate::cmd::Command;
 
-pub mod static_routes;
+pub mod dev_routes;
 pub mod open_routes;
 pub mod api_routes;
 pub mod ws_routes;
@@ -30,9 +30,10 @@ pub struct Config {
     #[arg(long, env = "LISTEN_ADDRESS", default_value = "127.0.0.1:8080")]
     pub listen_address: String,
 
-    /// Public URL used to build links sent to users
-    #[arg(long, env = "BASE_URL", default_value = "http://localhost:8080")]
-    pub base_url: String,
+    /// Enables POST /api-open/dev-login to log in as any user without Steam.
+    /// Never enable in production.
+    #[arg(long, env = "DEV_LOGIN", default_value_t = false)]
+    pub dev_login: bool,
 
     /// Tracing filter directives
     #[arg(long, env = "RUST_LOG", default_value = "rigidity_application=debug,tower_http=debug")]
@@ -40,15 +41,6 @@ pub struct Config {
 
     #[arg(long, env = "SECRET_KEY", hide_env_values = true)]
     pub secret_key: String,
-
-    #[arg(long, env = "EMAIL_DOMAIN")]
-    pub email_domain: String,
-
-    #[arg(long, env = "EMAIL_KEY", hide_env_values = true)]
-    pub email_key: String,
-
-    #[arg(long, env = "EMAIL_DEFAULT_ADDRESS")]
-    pub email_default_address: String,
 
     #[arg(long, env = "STEAM_SECRET_ACCESS_KEY", hide_env_values = true)]
     pub steam_secret_access_key: String,
@@ -83,8 +75,4 @@ pub fn config() -> &'static Config {
 
 pub fn cookie_key() -> Key {
     Key::from(config().secret_key.as_bytes())
-}
-
-pub fn get_base_url() -> String {
-    config().base_url.clone()
 }

@@ -139,3 +139,10 @@ pub async fn check_app_ownership(app_id: &u64, steam_id: &u64) -> AppResult<()> 
     }
     
 }
+
+pub async fn authenticate_and_check_ownership(data: &SteamAuthData) -> AppResult<u64> {
+    let steam_id = authenticate_user_ticket(data).await?;
+    check_app_ownership(&data.app_id, &steam_id).await?;
+
+    Ok(steam_id)
+}
