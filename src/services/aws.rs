@@ -1,12 +1,16 @@
 use rusoto_gamelift::GameLiftClient;
-use rusoto_core::credential::{EnvironmentProvider};
+use rusoto_core::credential::StaticProvider;
 use rusoto_core::request::HttpClient;
 use rusoto_core::region::Region;
 use serde::Deserialize;
+use crate::app_conf::config;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 pub async fn get_gamelift_client() -> GameLiftClient {
-    let cred = EnvironmentProvider::default();
+    let config = config();
+    let cred = StaticProvider::new_minimal(
+        config.aws_access_key_id.clone(),
+        config.aws_secret_access_key.clone());
     let client = HttpClient::new().unwrap();
     GameLiftClient::new_with(client, cred, Region::EuWest1)
 }

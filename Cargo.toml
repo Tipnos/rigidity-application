@@ -16,8 +16,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 derive_more = "0.99"
-dotenv = "0.15.0"
-lazy_static = "1.4"
+clap = { version = "4", features = ["derive", "env"] }
 rust-argon2="0.8"
 serde = "1.0"
 serde_derive = "1.0"

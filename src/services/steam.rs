@@ -1,6 +1,7 @@
 use reqwest::{header, Client};
 use crate::services::make_path_and_query;
 use std::collections::HashMap;
+use crate::app_conf::config;
 use crate::errors::{AppResult, AppError};
 use serde::Deserialize;
 use serde_json;
@@ -52,7 +53,7 @@ struct Error {
 
 pub async fn authenticate_user_ticket(data: &SteamAuthData) -> AppResult<u64> {
     let mut params = HashMap::new();
-    params.insert("key", std::env::var("STEAM_SECRET_ACCESS_KEY").unwrap_or_default());
+    params.insert("key", config().steam_secret_access_key.clone());
     params.insert("appid", data.app_id.to_string());
     params.insert("ticket", data.auth_ticket.to_string());
 
@@ -108,7 +109,7 @@ pub async fn check_app_ownership(app_id: &u64, steam_id: &u64) -> AppResult<()> 
         Ok(())
     } else {
         let mut params = HashMap::new();
-        params.insert("key", std::env::var("STEAM_SECRET_ACCESS_KEY").unwrap_or_default());
+        params.insert("key", config().steam_secret_access_key.clone());
         params.insert("appid", app_id.to_string());
         params.insert("steamid", steam_id.to_string());
     

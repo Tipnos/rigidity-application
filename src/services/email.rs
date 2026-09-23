@@ -1,3 +1,4 @@
+use crate::app_conf::config;
 use crate::errors::{AppResult, AppError};
 use serde::{Serialize, Deserialize};
 use reqwest::{header, Client, StatusCode};
@@ -6,8 +7,6 @@ pub struct EmailService<'a> {
     pub to: &'a str,
     pub subject: String,
     pub html: String,
-    #[cfg(debug_assertions)]
-    pub force_in_debug: bool,
 }
 
 impl<'a> EmailService<'a> {
@@ -16,30 +15,14 @@ impl<'a> EmailService<'a> {
             to,
             subject,
             html,
-            #[cfg(debug_assertions)]
-            force_in_debug: true
         }
     }
 
-    #[cfg(debug_assertions)]
     pub async fn send(&self) -> AppResult<()> {
-        if self.force_in_debug {
-            self._send().await
-        } else {
-            Ok(())
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    pub async fn send(&self) -> AppResult<()> {
-        self._send().await
-    }
-
-    async fn _send(&self) -> AppResult<()> {
+        let config = config();
         let email = Email {
             sender: Address { 
-                email: &std::env::var("EMAIL_DEFAULT_ADDRESS")
-                    .expect("EMAIL_DEFAULT_ADDRESS must be set")
+                email: &config.email_default_address
             },
             to: vec![Address {
                 email: self.to
@@ -48,14 +31,12 @@ impl<'a> EmailService<'a> {
             html_content: &self.html
         };
 
-        let uri = format!("https://{}/v3/smtp/email", std::env::var("EMAIL_DOMAIN")
-            .expect("EMAIL_DOMAIN must be set"));
+        let uri = format!("https://{}/v3/smtp/email", config.email_domain);
 
         let client = Client::new();
         let response = client.post(uri)
             .header(header::ACCEPT, "application/json")
-            .header("api-key", std::env::var("EMAIL_KEY")
-                .expect("EMAIL_KEY must be set"))
+            .header("api-key", &config.email_key)
             .json(&email)
             .send().await?;
 

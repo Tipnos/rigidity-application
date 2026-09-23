@@ -1,7 +1,7 @@
 use chrono::{Duration, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::app_conf::SECRET_KEY;
+use crate::app_conf::config;
 use crate::errors::{AppError, AppResult};
 
 use super::{DbPool, DbResult};
@@ -32,7 +32,7 @@ impl UserDAO {
         argon2::verify_encoded_ext(
             &self.hash,
             password.as_bytes(),
-            SECRET_KEY.as_bytes(),
+            config().secret_key.as_bytes(),
             &[])
             .map_err(|err| {
                 dbg!(err);

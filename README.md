@@ -37,3 +37,21 @@ Diesel postgres feature installation :
 - cargo install diesel_cli --no-default-features --features postgres
 - diesel setup --database-url=postgres://postgres:password@localhost/postgres?sslmode=disable
 
+
+### Configuration :
+
+The application is configured by CLI arguments or their matching environment variables (a CLI argument takes precedence). Run `cargo run -- --help` to list every option, its env variable and its default.
+
+Defaults target local development. Secrets have no default and must always be provided (see `example.env`):
+
+- cp example.env .env, then fill it in
+- set -a && source .env && set +a && cargo run
+
+Production must set, in addition to the secrets:
+
+- DATABASE_URL (e.g. `${POSTGRESQL_ADDON_URI}` on Clever Cloud)
+- BASE_URL=https://<domain>
+- LISTEN_ADDRESS=0.0.0.0:8080
+- MAX_NB_WORKERS, MAX_DB_CONNS_WORKER and RUST_LOG as needed
+
+Maintenance tasks are subcommands, e.g. `cargo run -- db insert users` inserts test users.
