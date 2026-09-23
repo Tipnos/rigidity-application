@@ -39,11 +39,17 @@ async fn start_server() -> std::io::Result<()> {
     };
 
     let (api_router, api) = app_conf::openapi::router().split_for_parts();
-    let app = api_router
+    let mut app = api_router
         .route("/ws", get(app_conf::ws_routes::get()))
         .merge(app_conf::aws_routes::get_all())
-        .merge(app_conf::static_routes::get_all())
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api));
+
+    if app_conf::config().dev_login {
+        tracing::warn!("Dev login enabled: anyone can log in as any user via POST /api-open/dev-login");
+        app = app.merge(app_conf::dev_routes::get_all());
+    }
+
+    let app = app
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 

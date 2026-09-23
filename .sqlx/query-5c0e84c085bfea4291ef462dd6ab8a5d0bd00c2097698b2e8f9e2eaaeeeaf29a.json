@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, email, nickname, hash, reset_password_hash, password_hash_expire_at,\n               created_at, steam_id, first_name, last_name, birth_date, email_confirmation_required\n        FROM users WHERE id = $1\n        ",
+  "query": "\n        SELECT id, nickname, created_at, steam_id, first_name, last_name, birth_date\n        FROM users WHERE id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -16,17 +16,6 @@
       },
       {
         "ordinal": 1,
-        "name": "email",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "email"
-          }
-        }
-      },
-      {
-        "ordinal": 2,
         "name": "nickname",
         "type_info": "Varchar",
         "origin": {
@@ -37,40 +26,7 @@
         }
       },
       {
-        "ordinal": 3,
-        "name": "hash",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "hash"
-          }
-        }
-      },
-      {
-        "ordinal": 4,
-        "name": "reset_password_hash",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "reset_password_hash"
-          }
-        }
-      },
-      {
-        "ordinal": 5,
-        "name": "password_hash_expire_at",
-        "type_info": "Timestamp",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "password_hash_expire_at"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
+        "ordinal": 2,
         "name": "created_at",
         "type_info": "Timestamp",
         "origin": {
@@ -81,7 +37,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 3,
         "name": "steam_id",
         "type_info": "Text",
         "origin": {
@@ -92,7 +48,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 4,
         "name": "first_name",
         "type_info": "Varchar",
         "origin": {
@@ -103,7 +59,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 5,
         "name": "last_name",
         "type_info": "Varchar",
         "origin": {
@@ -114,24 +70,13 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 6,
         "name": "birth_date",
         "type_info": "Timestamp",
         "origin": {
           "Table": {
             "table": "users",
             "name": "birth_date"
-          }
-        }
-      },
-      {
-        "ordinal": 11,
-        "name": "email_confirmation_required",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "users",
-            "name": "email_confirmation_required"
           }
         }
       }
@@ -146,15 +91,10 @@
       false,
       false,
       false,
-      true,
-      true,
-      false,
-      false,
-      false,
       false,
       false,
       false
     ]
   },
-  "hash": "1ea81254d9e3b811997e76fa0be13a44641380e31d9097b56996e2d76e608d44"
+  "hash": "5c0e84c085bfea4291ef462dd6ab8a5d0bd00c2097698b2e8f9e2eaaeeeaf29a"
 }

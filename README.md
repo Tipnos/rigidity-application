@@ -50,8 +50,16 @@ Defaults target local development. Secrets have no default and must always be pr
 Production must set, in addition to the secrets:
 
 - DATABASE_URL (e.g. `${POSTGRESQL_ADDON_URI}` on Clever Cloud)
-- BASE_URL=https://<domain>
 - LISTEN_ADDRESS=0.0.0.0:8080
 - MAX_NB_WORKERS, MAX_DB_CONNS_WORKER and RUST_LOG as needed
 
 Maintenance tasks are subcommands, e.g. `cargo run -- db insert users` inserts test users.
+
+### Local login without Steam :
+
+Accounts are Steam-only. To log in locally without a Steam ticket, start the server with `--dev-login` (or `DEV_LOGIN=true`), which enables `POST /api-open/dev-login` with a `{"user_id": <id>}` body. Never enable it in production.
+
+- cargo run -- db insert users (prints the created user ids)
+- cargo run -- --dev-login
+- curl -c jar -H 'content-type: application/json' -d '{"user_id":1}' localhost:8080/api-open/dev-login
+- curl -b jar localhost:8080/api/matchmaking/custom-room
