@@ -22,7 +22,7 @@ migrations_redo: ## Redo all migrations
 	diesel migration redo
 
 local_start: ## Start everything for local dev
-	sudo service postgresql start && cargo run
+	sudo service postgresql start && set -a && source .env && set +a && cargo run
 
 prod_deploy: ## Run migrations for prod env
 	cargo install diesel_cli --no-default-features --features postgres && diesel setup --database-url=${POSTGRESQL_ADDON_URI} && diesel migration run --database-url=${POSTGRESQL_ADDON_URI}

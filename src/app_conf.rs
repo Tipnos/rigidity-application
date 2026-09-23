@@ -1,4 +1,7 @@
 use axum_extra::extract::cookie::Key;
+use clap::Parser;
+use std::sync::OnceLock;
+use crate::cmd::Command;
 
 pub mod static_routes;
 pub mod open_routes;
@@ -6,80 +9,81 @@ pub mod api_routes;
 pub mod ws_routes;
 pub mod aws_routes;
 
-lazy_static::lazy_static! {
-    pub static ref SECRET_KEY: String = std::env::var("SECRET_KEY").unwrap_or_else(|_| "0123".repeat(16));
+/// Application configuration. Every option can be given as a CLI argument or
+/// through its environment variable. Defaults target local development.
+#[derive(Parser, Debug)]
+#[command(version, about)]
+pub struct Config {
+    #[arg(long, env = "DATABASE_URL",
+        default_value = "postgres://postgres:password@localhost/postgres?sslmode=disable")]
+    pub database_url: String,
+
+    /// Max database connections per worker (sqlx default if unset)
+    #[arg(long, env = "MAX_DB_CONNS_WORKER")]
+    pub max_db_conns_worker: Option<u32>,
+
+    /// Number of tokio worker threads (one per CPU core if unset)
+    #[arg(long, env = "MAX_NB_WORKERS")]
+    pub max_nb_workers: Option<usize>,
+
+    #[arg(long, env = "LISTEN_ADDRESS", default_value = "127.0.0.1:8080")]
+    pub listen_address: String,
+
+    /// Public URL used to build links sent to users
+    #[arg(long, env = "BASE_URL", default_value = "http://localhost:8080")]
+    pub base_url: String,
+
+    /// Tracing filter directives
+    #[arg(long, env = "RUST_LOG", default_value = "rigidity_application=debug,tower_http=debug")]
+    pub log_filter: String,
+
+    #[arg(long, env = "SECRET_KEY", hide_env_values = true)]
+    pub secret_key: String,
+
+    #[arg(long, env = "EMAIL_DOMAIN")]
+    pub email_domain: String,
+
+    #[arg(long, env = "EMAIL_KEY", hide_env_values = true)]
+    pub email_key: String,
+
+    #[arg(long, env = "EMAIL_DEFAULT_ADDRESS")]
+    pub email_default_address: String,
+
+    #[arg(long, env = "STEAM_SECRET_ACCESS_KEY", hide_env_values = true)]
+    pub steam_secret_access_key: String,
+
+    #[arg(long, env = "AWS_ACCESS_KEY_ID", hide_env_values = true)]
+    pub aws_access_key_id: String,
+
+    #[arg(long, env = "AWS_SECRET_ACCESS_KEY", hide_env_values = true)]
+    pub aws_secret_access_key: String,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+static CONFIG: OnceLock<Config> = OnceLock::new();
+
+/// Parses the configuration from CLI args and env variables, then sets up tracing.
+/// Must be called once at startup, before any call to `config()`.
+pub fn init() -> &'static Config {
+    let config = CONFIG.get_or_init(Config::parse);
+
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::new(&config.log_filter))
+        .init();
+
+    config
+}
+
+pub fn config() -> &'static Config {
+    CONFIG.get().expect("app_conf::init() must be called before app_conf::config()")
 }
 
 pub fn cookie_key() -> Key {
-    Key::from(SECRET_KEY.as_bytes())
+    Key::from(config().secret_key.as_bytes())
 }
 
-#[cfg(debug_assertions)]
-pub fn nb_worker() -> Option<u32> {
-    None
-}
-
-#[cfg(debug_assertions)]
-pub fn set_env() {
-    dotenv::dotenv().ok();
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::new(
-            "rigidity_application=debug,tower_http=debug"))
-        .init();
-}
-
-#[cfg(debug_assertions)]
-pub fn get_listen_address() -> String {
-    let mut domain = get_domain();
-    domain.push_str(":8080");
-
-    domain
-}
-
-#[cfg(debug_assertions)]
 pub fn get_base_url() -> String {
-    format!("http://{}", get_listen_address())
-}
-
-fn get_domain() -> String {
-    std::env::var("DOMAIN").unwrap_or_else(|_| "localhost".to_string())
-}
-
-#[cfg(not(debug_assertions))]
-pub fn nb_worker() -> Option<u32> {
-    let max_nb_workers: u32 = std::env::var("MAX_NB_WORKERS")
-        .expect("MAX_NB_WORKER must be set")
-        .parse()
-        .unwrap();
-    Some(max_nb_workers)
-}
-
-#[cfg(not(debug_assertions))]
-pub fn set_env() {
-    //check postgre URI
-    std::env::var("POSTGRESQL_ADDON_URI").expect("Missing POSTGRESQL_ADDON_URI env variable.");
-    std::env::var("DOMAIN").expect("Missing DOMAIN env variable.");
-    std::env::var("EMAIL_DOMAIN").expect("Missing EMAIL_DOMAIN env variable.");
-    std::env::var("EMAIL_KEY").expect("Missing EMAIL_KEY env variable.");
-    std::env::var("EMAIL_DEFAULT_ADDRESS").expect("Missing EMAIL_DEFAULT_ADDRESS env variable.");
-    std::env::var("MAX_NB_WORKERS").expect("Missing MAX_NB_WORKERS env variable.");
-    std::env::var("MAX_DB_CONNS_WORKER").expect("Missing MAX_DB_CONNS_WORKER env variable.");
-    std::env::var("AWS_ACCESS_KEY_ID").expect("Missing AWS_ACCESS_KEY_ID env variable.");
-    std::env::var("AWS_SECRET_ACCESS_KEY").expect("Missing AWS_SECRET_ACCESS_KEY env variable.");
-    std::env::var("SECRET_KEY").expect("Missing SECRET_KEY env variable.");
-    std::env::var("STEAM_SECRET_ACCESS_KEY").expect("Missing STEAM_SECRET_ACCESS_KEY env variable");
-
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
-}
-
-#[cfg(not(debug_assertions))]
-pub fn get_listen_address() -> String {
-    String::from("0.0.0.0:8080")
-}
-
-#[cfg(not(debug_assertions))]
-pub fn get_base_url() -> String {
-    format!("https://{}", get_domain())
+    config().base_url.clone()
 }

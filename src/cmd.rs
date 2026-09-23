@@ -1,43 +1,44 @@
-pub async fn interpret_args(mut args: Vec<String>) -> () {
-    match args[0].to_lowercase().as_str() {
-        "db" => {
-            args.drain(0..1);
-            if let Some(e) = db::interpret(args).await.err() {
-                println!("{}", e);
-            }
-        },
-        _ => {
-            println!("Unknown module: {}", args[0]);
-        },
+use clap::{Subcommand, ValueEnum};
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Database maintenance tasks
+    Db {
+        #[command(subcommand)]
+        action: DbAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DbAction {
+    /// Insert fixture data
+    Insert {
+        #[arg(value_enum)]
+        target: InsertTarget,
+    },
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum InsertTarget {
+    Users,
+}
+
+pub async fn run(command: &Command) {
+    let result = match command {
+        Command::Db { action } => db::run(action).await,
+    };
+
+    if let Err(e) = result {
+        println!("{}", e);
     }
 }
 
 mod db {
-    pub async fn interpret(args: Vec<String>) -> Result<(), String> {
-        let mut cmd = "--";
+    use super::{DbAction, InsertTarget};
 
-        for arg in &args {
-            if arg.contains("--") {
-                cmd = &arg[..];
-            } else {
-                match cmd {
-                    "--insert" => {
-                        run_insert(arg).await?;
-                    }
-                    _ => {
-                        return Err(format!("Unknown command {} of db module", arg));
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn run_insert(arg: &str) -> Result<(), String> {
-        match arg {
-            "users" => insert_test_users().await,
-            _ => Err(format!("Unknown arg {} of command db --insert", arg)),
+    pub async fn run(action: &DbAction) -> Result<(), String> {
+        match action {
+            DbAction::Insert { target: InsertTarget::Users } => insert_test_users().await,
         }
     }
 

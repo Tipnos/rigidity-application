@@ -1,6 +1,6 @@
 use argon2::Config;
 use rand::Rng;
-use crate::app_conf::SECRET_KEY;
+use crate::app_conf::config;
 use crate::errors::{AppResult, AppError};
 use crate::app_conf::get_base_url;
 use crate::services::email::EmailService;
@@ -14,12 +14,12 @@ pub fn new_reset_password_hash() -> AppResult<String> {
 }
 
 pub fn hash_password(to_hash: &str) -> AppResult<String> {
-    let config = Config {
-        secret: SECRET_KEY.as_bytes(),
+    let argon_config = Config {
+        secret: config().secret_key.as_bytes(),
         ..Default::default()
     };
     
-    argon2::hash_encoded(to_hash.as_bytes(), SECRET_KEY.as_bytes(), &config)
+    argon2::hash_encoded(to_hash.as_bytes(), config().secret_key.as_bytes(), &argon_config)
         .map_err(|err| {
         AppError::InternalServerError(err.to_string())
     })

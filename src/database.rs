@@ -1,4 +1,5 @@
 use sqlx::postgres::PgPoolOptions;
+use crate::app_conf::config;
 
 pub mod custom_rooms;
 pub mod custom_room_slots;
@@ -11,26 +12,15 @@ pub type DbResult<R> = Result<R, sqlx::Error>;
 // `cargo sqlx prepare` (with DATABASE_URL pointed at a migrated database)
 // and committing the resulting `.sqlx/*.json` files.
 
-#[cfg(debug_assertions)]
 pub async fn connect_database() -> DbPool {
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgPoolOptions::new()
-        .connect(&database_url)
-        .await
-        .expect("Failed to create sqlx pool.")
-}
+    let config = config();
+    let mut options = PgPoolOptions::new();
+    if let Some(max_size) = config.max_db_conns_worker {
+        options = options.max_connections(max_size);
+    }
 
-#[cfg(not(debug_assertions))]
-pub async fn connect_database() -> DbPool {
-    let database_url = std::env::var("POSTGRESQL_ADDON_URI").expect("POSTGRESQL_ADDON_URI must be set");
-    let max_size: u32 = std::env::var("MAX_DB_CONNS_WORKER")
-        .expect("MAX_DB_CONNS_WORKER must be set")
-        .parse()
-        .unwrap();
-
-    PgPoolOptions::new()
-        .max_connections(max_size)
-        .connect(&database_url)
+    options
+        .connect(&config.database_url)
         .await
         .expect("Failed to create sqlx pool.")
 }
