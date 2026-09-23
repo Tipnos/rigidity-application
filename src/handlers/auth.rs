@@ -3,8 +3,7 @@ use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
 use actix_web::http::StatusCode;
 use serde::Deserialize;
 use crate::errors::{AppResult, AppError};
-use crate::models::user::{self};
-use crate::Pool;
+use crate::database::{self, users as user_dao};
 use crate::services::{email::EmailService, steam::SteamAuthData};
 use chrono::NaiveDateTime;
 use crate::app_conf::get_base_url;
@@ -19,9 +18,9 @@ pub struct AuthData {
 pub async fn login(
     request: HttpRequest,
     auth_data: web::Json<AuthData>,
-    pool: web::Data<Pool>
-) -> AppResult<HttpResponse> {    
-    let user = web::block(move || t_login(auth_data, pool)).await??;
+    pool: web::Data<database::DbPool>
+) -> AppResult<HttpResponse> {
+    let user = t_login(auth_data, pool).await?;
 
     if let Err(err) = Identity::login(&request.extensions(), user.id.to_string()) {
         return Err(AppError::InternalServerError(err.to_string()))
@@ -30,13 +29,13 @@ pub async fn login(
     Ok(HttpResponse::Ok().json(user))
 }
 
-fn t_login(
+async fn t_login(
     auth_data: web::Json<AuthData>,
-    pool: web::Data<Pool>
-) -> AppResult<user::User> {
+    pool: web::Data<database::DbPool>
+) -> AppResult<user_dao::UserDAO> {
     let datas = auth_data.into_inner();
     let email = datas.email.clone();
-    match user::get_by_email(&email, &pool.get().unwrap()) {
+    match user_dao::get_by_email(&email, &pool).await {
         Ok(user) => {
             if !user.can_login() {
                 return Err(AppError::Forbidden);
@@ -57,13 +56,12 @@ fn t_login(
 pub async fn login_steam(
     request: HttpRequest,
     auth_data: web::Json<SteamAuthData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
     let steam_id = steam::authenticate_user_ticket(&auth_data).await?;
 
-    let user = web::block(move || 
-        user::get_by_steam_id(&steam_id.to_string(), &pool.get().unwrap())).await??;
-    
+    let user = user_dao::get_by_steam_id(&steam_id.to_string(), &pool).await?;
+
     steam::check_app_ownership(&auth_data.app_id, &steam_id).await?;
     if user.can_login() {
         if let Err(err) = Identity::login(&request.extensions(), user.id.to_string()) {
@@ -89,24 +87,24 @@ pub struct AskPassData {
 
 pub async fn ask_password_reset(
     data: web::Json<AskPassData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
     match t_ask_password_reset(data, pool).await {
         Ok(_) => Ok(HttpResponse::Ok().finish()),
         Err(err) => Err(err)
-    }    
+    }
 }
 
 async fn t_ask_password_reset(
     data: web::Json<AskPassData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<()> {
     let hash = auth_service::new_reset_password_hash()?;
-    let result  = user::update_reset_password_hash(
-        &data.email, 
+    let result  = user_dao::update_reset_password_hash(
+        &data.email,
         &hash,
-        &pool.get().unwrap()
-    );
+        &pool
+    ).await;
 
     match result {
         Ok(expire_time) => {
@@ -144,27 +142,25 @@ pub struct ResetPassData {
 
 pub async fn reset_password(
     data: web::Json<ResetPassData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
-    web::block(move || t_reset_password(data, pool)).await??;
+    t_reset_password(data, pool).await?;
 
     Ok(HttpResponse::TemporaryRedirect()
         .status(StatusCode::SEE_OTHER)
         .insert_header((
-            "Location", 
+            "Location",
             "/login.html"))
         .finish())
 }
 
-fn t_reset_password(
+async fn t_reset_password(
     data: web::Json<ResetPassData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<()> {
-    let conn = &pool.get().unwrap();
-
-    auth_service::check_reset_password_hash(&data.hash, conn)?;
+    auth_service::check_reset_password_hash(&data.hash, &pool).await?;
     match auth_service::hash_password(&data.new_password) {
-        Ok(new_hash) => user::update_password(&data, &new_hash, conn)?,
+        Ok(new_hash) => user_dao::update_password(&data.hash, &new_hash, &pool).await?,
         Err(err) => return Err(AppError::InternalServerError(err.to_string()))
     }
 
@@ -192,10 +188,9 @@ pub struct EmailConfirmationData {
 
 pub async fn email_confirmation(
     data: web::Json<EmailConfirmationData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
-    web::block(move ||
-        auth_service::email_confirmation(&data.hash, &pool.get().unwrap())).await??; 
+    auth_service::email_confirmation(&data.hash, &pool).await?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -208,7 +203,7 @@ pub struct UpdateEmailConfirmationData {
 
 pub async fn update_email_confirmation(
     data: web::Json<UpdateEmailConfirmationData>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
     let steam_id = auth_service::steam_authenticate_and_ownership_check(&data.auth).await?;
 

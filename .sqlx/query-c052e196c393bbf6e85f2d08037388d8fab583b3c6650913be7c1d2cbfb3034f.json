@@ -1,0 +1,163 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE users\n        SET email = $1, reset_password_hash = $2, password_hash_expire_at = $3\n        WHERE steam_id = $4\n        RETURNING id, email, nickname, hash, reset_password_hash, password_hash_expire_at,\n                  created_at, steam_id, first_name, last_name, birth_date, email_confirmation_required\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "nickname",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "nickname"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reset_password_hash",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "reset_password_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "password_hash_expire_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "password_hash_expire_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "steam_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "steam_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "first_name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "first_name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "last_name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "last_name"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "birth_date",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "birth_date"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "email_confirmation_required",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "email_confirmation_required"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Timestamp",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c052e196c393bbf6e85f2d08037388d8fab583b3c6650913be7c1d2cbfb3034f"
+}

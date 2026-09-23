@@ -3,16 +3,16 @@ use actix::prelude::{Actor, Context, Handler};
 use std::collections::HashMap;
 use actix::Addr;
 use super::{ws::WsConn, ForwardMessage, MultiForwardMessage, BroadcastExceptMessage};
-use crate::{Pool};
+use crate::database::DbPool;
 use crate::services::custom_room::handle_websocket_closing as on_custom_room_disconnect;
 
 pub struct Lobby {
     pub sessions: HashMap<i32, Addr<WsConn>>, //user_id to socket
-    pub pool: Pool
+    pub pool: DbPool
 }
 
 impl Lobby {
-    pub fn new(pool: Pool) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Lobby {
             sessions: HashMap::new(),
             pool
@@ -54,7 +54,11 @@ impl Handler<Disconnect> for Lobby {
 
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
         self.sessions.remove(&msg.id);
-        on_custom_room_disconnect(&msg.id, msg.addr, &self.pool.get().unwrap());
+
+        let pool = self.pool.clone();
+        actix::spawn(async move {
+            on_custom_room_disconnect(&msg.id, msg.addr, &pool).await;
+        });
     }
 }
 

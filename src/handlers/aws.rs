@@ -7,14 +7,14 @@ use serde::Deserialize;
 use crate::services::aws::*;
 use crate::services::custom_room;
 use actix::{Addr};
-use crate::Pool;
+use crate::database;
 use crate::services::{as_json_string, websocket::WebsocketLobby};
 
 pub async fn sns(
     req: HttpRequest,
     mut stream: Payload,
     ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
     let error = Err(AppError::BadRequest(String::from("x-amz-sns-message-type header is unknown or missing.")));
 
@@ -72,7 +72,7 @@ async fn handle_sns_subscription(
 async fn handle_sns_notification(
     body: web::BytesMut,
     ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<Pool>
+    pool: web::Data<database::DbPool>
 ) -> AppResult<HttpResponse> {
     #[derive(Deserialize)]
     struct SnsData {
@@ -92,8 +92,8 @@ async fn handle_sns_notification(
                 if let Err(err) = custom_room::matchmaking_succeeded(
                     data.message,
                     ws.get_ref().to_owned(),
-                    &pool.get().unwrap()
-                ) {
+                    &pool
+                ).await {
                     return Err(err)
                 }
             },
@@ -102,10 +102,10 @@ async fn handle_sns_notification(
             FlexMatchEvents::MatchmakingFailed => {
                 let ticket_id = &obj.message.detail.tickets[0].ticket_id;
                 if let Err(err) = custom_room::matchmaking_failed(
-                    obj.message.detail.e_type, 
+                    obj.message.detail.e_type,
                     ticket_id,
-                    ws.get_ref().to_owned(), 
-                    &pool.get().unwrap()
+                    ws.get_ref().to_owned(),
+                    &pool
                 ).await {
                     return Err(err)
                 }

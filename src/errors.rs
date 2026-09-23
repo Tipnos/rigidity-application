@@ -1,6 +1,5 @@
-use actix_web::{error::{BlockingError, ResponseError, PayloadError}, HttpResponse};
+use actix_web::{error::{ResponseError, PayloadError}, HttpResponse};
 use derive_more::Display;
-use diesel::result::{Error as DBError};
 use std::convert::From;
 use serde_json;
 use serde::{Serialize};
@@ -49,20 +48,6 @@ impl ResponseError for AppError {
     }
 }
 
-impl From<DBError> for AppError {
-    fn from(error: DBError) -> AppError {
-        match error {
-            DBError::DatabaseError(_kind, info) => {
-                return AppError::BadRequest(info.details().unwrap_or_else(|| info.message()).to_string());
-            },
-            DBError::NotFound => {
-                return AppError::BadRequest(format!("Databse error not found."));
-            },
-            _ => AppError::InternalServerError(String::from("Database error")),
-        }
-    }
-}
-
 impl From<serde_json::Error> for AppError {
     fn from(error: serde_json::Error) -> AppError {
         AppError::InternalServerError(format!("Error while parsing json. {}", error.to_string()))
@@ -87,8 +72,16 @@ impl From<HttpError> for AppError {
     }
 }
 
-impl From<BlockingError> for AppError {
-    fn from(error: BlockingError) -> AppError {
-        AppError::InternalServerError(error.to_string())
+impl From<sqlx::Error> for AppError {
+    fn from(error: sqlx::Error) -> AppError {
+        match error {
+            sqlx::Error::RowNotFound => {
+                AppError::BadRequest(format!("Database error not found."))
+            },
+            sqlx::Error::Database(db_err) => {
+                AppError::BadRequest(db_err.message().to_string())
+            },
+            _ => AppError::InternalServerError(String::from("Database error")),
+        }
     }
 }

@@ -1,15 +1,13 @@
 use argon2::Config;
-use diesel::PgConnection;
 use rand::Rng;
 use crate::app_conf::SECRET_KEY;
 use crate::errors::{AppResult, AppError};
 use crate::app_conf::get_base_url;
 use crate::services::email::EmailService;
 use chrono::{Utc, NaiveDateTime};
-use crate::models::user::{self};
+use crate::database::{self, users as user_dao};
 use crate::services::steam;
 use actix_web::web;
-use crate::Pool;
 
 pub fn new_reset_password_hash() -> AppResult<String> {
     let rng = rand::thread_rng().gen::<i64>().to_string();
@@ -28,16 +26,16 @@ pub fn hash_password(to_hash: &str) -> AppResult<String> {
     })
 }
 
-pub fn check_reset_password_hash(hash: &str, conn: &PgConnection) -> AppResult<()> {
+pub async fn check_reset_password_hash(hash: &str, pool: &database::DbPool) -> AppResult<()> {
     let expired_error = Err(AppError::BadRequest(String::from("The link you used has expired. Make a new request.")));
 
-    let user = user::get_by_reset_password_hash(hash, conn)?;
+    let user = user_dao::get_by_reset_password_hash(hash, pool).await?;
     if let Some(expire_date) = user.password_hash_expire_at {
         let now = NaiveDateTime::from_timestamp_opt(Utc::now().timestamp(), 0).unwrap();
         if expire_date >= now {
             Ok(())
         } else {
-            if let Err(err) = user::cancel_reset_password_hash(&hash, conn) {
+            if let Err(err) = user_dao::cancel_reset_password_hash(&hash, pool).await {
                 return Err(AppError::BadRequest(err.to_string()));
             }
             return expired_error;
@@ -65,36 +63,27 @@ pub async fn send_confirmation_email(email: &str, expire_timestamp: i64, hash: &
     Ok(())
 }
 
-pub fn email_confirmation(hash: &str, conn: &PgConnection) -> AppResult<()> {
-    check_reset_password_hash(hash, conn)?;
-    user::confirm_email(hash, conn)?;
+pub async fn email_confirmation(hash: &str, pool: &database::DbPool) -> AppResult<()> {
+    check_reset_password_hash(hash, pool).await?;
+    user_dao::confirm_email(hash, pool).await?;
 
     Ok(())
 }
 
 pub async fn update_email_confirmation(
-    email: String, steam_id: u64, pool: web::Data<Pool>) -> AppResult<()> {
-    let c_email = email.clone();
-    let (expire_time_stamp, email_confirmation_hash) = web::block(move || 
-        t_update_email_confirmation(email, steam_id, pool)).await??;
-    send_confirmation_email(&c_email, expire_time_stamp, &email_confirmation_hash).await?;
-    
-    Ok(())
-}
+    email: String, steam_id: u64, pool: web::Data<database::DbPool>) -> AppResult<()> {
+    let user = user_dao::get_by_steam_id(&steam_id.to_string(), &pool).await?;
 
-pub fn t_update_email_confirmation(
-    email: String, steam_id: u64, pool: web::Data<Pool>) -> AppResult<(i64, String)> {
-    let conn = &pool.get().unwrap(); 
-    let user = user::get_by_steam_id(&steam_id.to_string(), conn)?;
-
-    if user.email_confirmation_required {
-        let email_confirmation_hash = new_reset_password_hash()?;
-        let (_user, expire_time_stamp) = user::update_email(
-            &email, &steam_id, &email_confirmation_hash, conn)?;
-            Ok((expire_time_stamp, email_confirmation_hash))
-    } else {
+    if !user.email_confirmation_required {
         return Err(AppError::Forbidden);
     }
+
+    let email_confirmation_hash = new_reset_password_hash()?;
+    let (_user, expire_time_stamp) = user_dao::update_email(
+        &email, &steam_id, &email_confirmation_hash, &pool).await?;
+    send_confirmation_email(&email, expire_time_stamp, &email_confirmation_hash).await?;
+
+    Ok(())
 }
 
 pub async fn steam_authenticate_and_ownership_check(
