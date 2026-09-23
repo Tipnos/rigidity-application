@@ -9,21 +9,15 @@ help:
 
 all: help
 
-migrations_new: ## Create a new migrations
-	diesel migration generate $(filter-out $@,$(MAKECMDGOALS))
+migrations_new: ## Create a new migration (make migrations_new name=<name>)
+	sqlx migrate add $(name)
 
 migrations_run: ## Persist migrations in database
-	diesel migration run
-
-migrations_revert: ## Revert the last migration
-	diesel migration revert
-
-migrations_redo: ## Redo all migrations
-	diesel migration redo
+	sqlx migrate run
 
 local_start: ## Start everything for local dev
 	sudo service postgresql start && set -a && source .env && set +a && cargo run
 
 prod_deploy: ## Run migrations for prod env
-	cargo install diesel_cli --no-default-features --features postgres && diesel setup --database-url=${POSTGRESQL_ADDON_URI} && diesel migration run --database-url=${POSTGRESQL_ADDON_URI}
+	cargo install sqlx-cli --no-default-features --features postgres,native-tls && sqlx migrate run --database-url=${POSTGRESQL_ADDON_URI}
 	

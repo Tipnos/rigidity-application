@@ -120,9 +120,8 @@ pub async fn create_with_owner_slot(
     map: Option<Maps>,
     pool: &DbPool,
 ) -> DbResult<(CustomRoomDAO, Vec<CustomRoomSlotDAO>)> {
-    // Mirrors the DB column defaults (migrations 2022-03-15-113708 /
-    // 2022-04-15-082107): current_game_mode defaults to 'king_of_the_hill',
-    // current_map to 'inferno'.
+    // Mirrors the DB column defaults (migrations/20210111000000_init.sql):
+    // current_game_mode defaults to 'king_of_the_hill', current_map to 'inferno'.
     let game_mode = game_mode.unwrap_or(GameModes::KingOfTheHill);
     let map = map.unwrap_or(Maps::Inferno);
 

@@ -31,11 +31,13 @@ create/alter user :
 - sudo -u postgres createuser <username>
 - (in postgres prompt) alter user <username> with encrypted password '<password>'
 
-Diesel postgres feature installation : 
+sqlx-cli installation and database setup :
 
-- sudo apt install libpq-dev
-- cargo install diesel_cli --no-default-features --features postgres
-- diesel setup --database-url=postgres://postgres:password@localhost/postgres?sslmode=disable
+- cargo install sqlx-cli --no-default-features --features postgres,native-tls
+- sqlx database create --database-url=postgres://postgres:password@localhost/postgres?sslmode=disable
+- sqlx migrate run --database-url=postgres://postgres:password@localhost/postgres?sslmode=disable
+
+The diesel-era migrations have been squashed into `migrations/20210111000000_init.sql`, which is idempotent: on a database previously migrated with diesel it only records itself in `_sqlx_migrations`. The old `__diesel_schema_migrations` table (and the `diesel_manage_updated_at` / `diesel_set_updated_at` functions) can then be dropped.
 
 
 ### Configuration :
