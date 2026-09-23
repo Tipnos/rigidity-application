@@ -6,26 +6,7 @@ mod lobby;
 
 pub type WebsocketLobby = lobby::Lobby;
 
-#[derive(Serialize)]
-pub struct ServerMessage<'a, T: Serialize> {
-    route: String,
-    message: String,
-    data: &'a T
-}
-
-impl<'a, T: Serialize> ServerMessage<'a, T> {
-    pub fn new(route: String, message: String, data: &'a T) -> Self {
-        ServerMessage {
-            route,
-            message,
-            data
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        serde_json::to_string(&self).unwrap()
-    }
-} 
+pub use crate::dto::output::ServerMessageDTO as ServerMessage;
 
 pub struct ForwardMessage {
     id: i32,

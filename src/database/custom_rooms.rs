@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use rusoto_gamelift::{Player, StartMatchmakingInput};
 
@@ -8,7 +7,7 @@ use super::{DbPool, DbResult};
 use super::custom_room_slots::{self, CustomRoomSlotDAO};
 use super::users::{self, UserDAO};
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct CustomRoomDAO {
     pub id: i32,
     pub label: String,
@@ -18,6 +17,17 @@ pub struct CustomRoomDAO {
     pub current_game_mode: GameModes,
     pub current_map: Maps,
     pub matchmaking_ticket: Option<Uuid>,
+}
+
+// Settings chosen by the owner when creating or updating a room. `None` game
+// mode / map means the DB default (create) or the current value (update).
+#[derive(Debug, Clone)]
+pub struct CustomRoomSettings {
+    pub label: String,
+    pub nb_teams: i32,
+    pub max_player_per_team: i32,
+    pub game_mode: Option<GameModes>,
+    pub map: Option<Maps>,
 }
 
 impl CustomRoomDAO {
@@ -112,19 +122,15 @@ pub async fn get_all(pool: &DbPool) -> DbResult<Vec<CustomRoomDAO>> {
 // one transaction, replacing the separate insert + `SELECT id ORDER BY id DESC`
 // diesel used to locate the new room's id.
 pub async fn create_with_owner_slot(
-    label: &str,
+    settings: &CustomRoomSettings,
     user_id: i32,
-    nb_teams: i32,
-    max_player_per_team: i32,
-    game_mode: Option<GameModes>,
-    map: Option<Maps>,
     pool: &DbPool,
 ) -> DbResult<(CustomRoomDAO, Vec<CustomRoomSlotDAO>)> {
     // Mirrors the DB column defaults (migrations 2022-03-15-113708 /
     // 2022-04-15-082107): current_game_mode defaults to 'king_of_the_hill',
     // current_map to 'inferno'.
-    let game_mode = game_mode.unwrap_or(GameModes::KingOfTheHill);
-    let map = map.unwrap_or(Maps::Inferno);
+    let game_mode = settings.game_mode.unwrap_or(GameModes::KingOfTheHill);
+    let map = settings.map.unwrap_or(Maps::Inferno);
 
     let mut tx = pool.begin().await?;
 
@@ -136,7 +142,7 @@ pub async fn create_with_owner_slot(
         RETURNING id, label, user_id, nb_teams, max_player_per_team,
                   current_game_mode as "current_game_mode: GameModes", current_map as "current_map: Maps", matchmaking_ticket
         "#,
-        label, user_id, nb_teams, max_player_per_team, game_mode as GameModes, map as Maps
+        settings.label, user_id, settings.nb_teams, settings.max_player_per_team, game_mode as GameModes, map as Maps
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -160,11 +166,7 @@ pub async fn create_with_owner_slot(
 
 pub async fn update(
     custom_room_id: i32,
-    label: &str,
-    nb_teams: i32,
-    max_player_per_team: i32,
-    game_mode: Option<GameModes>,
-    map: Option<Maps>,
+    settings: &CustomRoomSettings,
     pool: &DbPool,
 ) -> DbResult<CustomRoomDAO> {
     sqlx::query_as!(
@@ -178,7 +180,7 @@ pub async fn update(
         RETURNING id, label, user_id, nb_teams, max_player_per_team,
                   current_game_mode as "current_game_mode: GameModes", current_map as "current_map: Maps", matchmaking_ticket
         "#,
-        label, nb_teams, max_player_per_team, game_mode as Option<GameModes>, map as Option<Maps>, custom_room_id
+        settings.label, settings.nb_teams, settings.max_player_per_team, settings.game_mode as Option<GameModes>, settings.map as Option<Maps>, custom_room_id
     )
     .fetch_one(pool)
     .await

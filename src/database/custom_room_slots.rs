@@ -1,12 +1,18 @@
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use rusoto_gamelift::AttributeValue;
 
 use crate::enums::Archetypes;
 
 use super::{DbPool, DbResult};
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+// A (team, team_position) pair inside a custom room.
+#[derive(Debug, Clone, Copy)]
+pub struct SlotPosition {
+    pub team: i32,
+    pub team_position: i32,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct CustomRoomSlotDAO {
     pub id: i32,
     pub custom_room_id: i32,

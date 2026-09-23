@@ -9,6 +9,7 @@ pub mod database;
 pub mod enums;
 pub mod services;
 pub mod cmd;
+mod dto;
 mod handlers;
 mod errors;
 

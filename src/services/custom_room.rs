@@ -1,24 +1,26 @@
 use std::collections::HashMap;
-use crate::database::{custom_rooms, custom_room_slots, users, DbPool};
-use crate::database::custom_rooms::CustomRoomDAO;
-use crate::database::custom_room_slots::CustomRoomSlotDAO;
+use crate::database::{custom_rooms, custom_room_slots, users, DbPool, DbResult};
+use crate::database::custom_rooms::{CustomRoomDAO, CustomRoomSettings};
+use crate::database::custom_room_slots::{CustomRoomSlotDAO, SlotPosition};
 use rusoto_gamelift::*;
 use crate::services::websocket::{ServerMessage, BroadcastExceptMessage, WebsocketLobby, MultiForwardMessage, ForwardMessage};
 use serde::{Serialize};
-use crate::handlers::custom_room::dtos::CustomRoomDto;
-use crate::handlers::custom_room::{CustomRoomData, SwitchSlotData};
+use crate::dto::output::{
+    CustomRoomDTO, CustomRoomUpdatedDTO, UserIdDTO, SlotSwitchedDTO, ArchetypeSwitchedDTO,
+    MatchmakingSucceededDTO, MatchmakingFailedDTO, EmptyDTO,
+};
 use crate::errors::{AppResult, AppError};
 use crate::enums::Archetypes;
 use uuid::Uuid;
 use crate::services::aws::{FlexMatchEvents, FlexMatchData, FlexMatchSucceededDetail};
 
-pub async fn get_all(pool: &DbPool) -> AppResult<Vec<CustomRoomDto>> {
+pub async fn get_all(pool: &DbPool) -> AppResult<Vec<CustomRoomDTO>> {
     let tuples = custom_rooms::get_all_with_slots(pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let mut results = Vec::new();
     for tuple in tuples {
-        let dto = CustomRoomDto::new(tuple, pool).await
+        let dto = to_dto(tuple, pool).await
             .map_err(|err| AppError::InternalServerError(err.to_string()))?;
         results.push(dto);
     }
@@ -27,22 +29,15 @@ pub async fn get_all(pool: &DbPool) -> AppResult<Vec<CustomRoomDto>> {
 }
 
 pub async fn create(
-    create_data: CustomRoomData,
+    settings: CustomRoomSettings,
     user_id: i32,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
-    let tuple = custom_rooms::create_with_owner_slot(
-        &create_data.label,
-        user_id,
-        create_data.nb_teams,
-        create_data.max_players_per_team,
-        create_data.game_mode,
-        create_data.map,
-        pool
-    ).await.map_err(|err| AppError::BadRequest(err.to_string()))?;
+) -> AppResult<CustomRoomDTO> {
+    let tuple = custom_rooms::create_with_owner_slot(&settings, user_id, pool).await
+        .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    let dto = CustomRoomDto::new(tuple, pool).await
+    let dto = to_dto(tuple, pool).await
         .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
     let msg = BroadcastExceptMessage::new(
@@ -63,7 +58,7 @@ pub async fn join(
     user_id: i32,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
+) -> AppResult<CustomRoomDTO> {
     let (custom_room, slots) = custom_rooms::get_with_slots(custom_room_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
@@ -75,7 +70,7 @@ pub async fn join(
     let tuple = custom_rooms::get_with_slots(custom_room_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    let dto = CustomRoomDto::new(tuple, pool).await
+    let dto = to_dto(tuple, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let user_ids = dto.get_all_user_ids_except(&user_id);
@@ -97,23 +92,16 @@ pub async fn join(
 }
 
 pub async fn update(
-    update_data: CustomRoomData,
+    settings: CustomRoomSettings,
     user_id: i32,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
+) -> AppResult<CustomRoomDTO> {
     let (existing_room, _) = custom_rooms::get_by_user_id_with_slots(user_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    let updated_room = custom_rooms::update(
-        existing_room.id,
-        &update_data.label,
-        update_data.nb_teams,
-        update_data.max_players_per_team,
-        update_data.game_mode,
-        update_data.map,
-        pool
-    ).await.map_err(|err| AppError::BadRequest(err.to_string()))?;
+    let updated_room = custom_rooms::update(existing_room.id, &settings, pool).await
+        .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let slots = custom_room_slots::get_by_custom_room_id(updated_room.id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
@@ -124,7 +112,7 @@ pub async fn update(
         (updated_room, slots),
         String::from("update"),
         pool,
-        &update_data
+        &CustomRoomUpdatedDTO::from(settings)
     ).await
 }
 
@@ -133,19 +121,14 @@ pub async fn quit(
     user_id: i32,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
-    #[derive(Serialize)]
-    struct WsData<'a> {
-        pub user_id: &'a i32
-    }
-
+) -> AppResult<CustomRoomDTO> {
     custom_room_slots::delete_by_user_id(user_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let tuple = custom_rooms::get_with_slots(custom_room_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    let ws_data = WsData {user_id: &user_id};
+    let ws_data = UserIdDTO {user_id};
     send_multi_forward_message(
         ws,
         &user_id,
@@ -167,15 +150,13 @@ pub async fn delete(
     custom_rooms::delete_by_user_id(user_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    #[derive(Serialize)]
-    struct Empty{}
     send_multi_forward_message(
         ws,
         &user_id,
         tuple,
         String::from("delete"),
         pool,
-        &Empty{}
+        &EmptyDTO{}
     ).await?;
 
     Ok(())
@@ -184,18 +165,10 @@ pub async fn delete(
 pub async fn switch_slot(
     custom_room_id: i32,
     user_id: i32,
-    position: SwitchSlotData,
+    position: SlotPosition,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
-    #[derive(Serialize)]
-    struct WsData<'a> {
-        pub user_id: &'a i32,
-        pub nickname: &'a str,
-        pub team: &'a i32,
-        pub team_position: &'a i32
-    }
-
+) -> AppResult<CustomRoomDTO> {
     validate_switch_slot(custom_room_id, &position, pool).await?;
 
     custom_room_slots::update_position(user_id, custom_room_id, position.team, position.team_position, pool).await
@@ -206,11 +179,11 @@ pub async fn switch_slot(
 
     let user = users::get(user_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
-    let ws_data = WsData {
-        user_id: &user_id,
-        nickname: &user.nickname,
-        team: &position.team,
-        team_position: &position.team_position
+    let ws_data = SlotSwitchedDTO {
+        user_id,
+        nickname: user.nickname,
+        team: position.team,
+        team_position: position.team_position
     };
 
     send_multi_forward_message(
@@ -229,21 +202,15 @@ pub async fn switch_archetype(
     user_id: i32,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
-    #[derive(Serialize)]
-    struct WsData<'a> {
-        pub user_id: &'a i32,
-        pub archetype: u32,
-    }
-
+) -> AppResult<CustomRoomDTO> {
     custom_room_slots::update_archetype_by_user_id(user_id, archetype, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let tuple = custom_rooms::get_with_slots(custom_room_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    let ws_data = WsData {
-        user_id: &user_id,
+    let ws_data = ArchetypeSwitchedDTO {
+        user_id,
         archetype: archetype.to_u32(),
     };
     send_multi_forward_message(
@@ -262,20 +229,16 @@ pub async fn kick(
     o_user_id: Option<i32>,
     ws: WebsocketLobby,
     pool: &DbPool
-) -> AppResult<CustomRoomDto> {
+) -> AppResult<CustomRoomDTO> {
     custom_room_slots::delete_by_user_id(user_id_to_kick, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let tuple = custom_rooms::get_with_slots(custom_room_id, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
-    #[derive(Serialize)]
-    struct WsData {
-        pub user_id: i32,
-    }
-    let data = WsData{user_id: user_id_to_kick};
+    let data = UserIdDTO{user_id: user_id_to_kick};
 
-    let dto = CustomRoomDto::new(tuple, pool).await
+    let dto = to_dto(tuple, pool).await
         .map_err(|err| AppError::BadRequest(err.to_string()))?;
 
     let mut user_ids;
@@ -323,9 +286,7 @@ pub async fn start_matchmaking(
                 custom_rooms::update_ticket(custom_room_id, Some(ticket_id), pool).await
                     .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
-                #[derive(Serialize)]
-                struct Empty{}
-                let data = &Empty{};
+                let data = &EmptyDTO{};
                 let mut slots = Vec::new();
                 for (slot, _user) in tuples {
                     slots.push(slot);
@@ -373,9 +334,7 @@ pub async fn stop_matchmaking(
             custom_rooms::update_ticket(custom_room_id, None, pool).await
                 .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
-            #[derive(Serialize)]
-            struct Empty{}
-            let data = &Empty{};
+            let data = &EmptyDTO{};
             send_multi_forward_message(
                 ws,
                 &user_id,
@@ -402,23 +361,15 @@ pub async fn matchmaking_succeeded(
     let (custom_room, slots) = custom_rooms::get_by_ticket_id_with_slots(ticket_id, pool).await
         .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
-    #[derive(Serialize)]
-    struct WsData<'a> {
-        pub ip_address: &'a str,
-        pub port: &'a i32,
-        pub player_id: &'a str,
-        pub player_session_id: &'a str
-    }
-
     for slot in slots {
         let str_user_id = slot.user_id.to_string();
         for player in &data.detail.game_session_info.players {
             if player.player_id == str_user_id {
-                let ws_data = WsData {
-                    ip_address: &data.detail.game_session_info.ip_address,
-                    port: &data.detail.game_session_info.port,
-                    player_id: &player.player_id,
-                    player_session_id: &player.player_session_id
+                let ws_data = MatchmakingSucceededDTO {
+                    ip_address: data.detail.game_session_info.ip_address.clone(),
+                    port: data.detail.game_session_info.port,
+                    player_id: player.player_id.clone(),
+                    player_session_id: player.player_session_id.clone()
                 };
 
                 let msg = ForwardMessage::new(
@@ -450,11 +401,6 @@ pub async fn matchmaking_failed(
     let (custom_room, slots) = custom_rooms::get_by_ticket_id_with_slots(uuid_ticket_id, pool).await
         .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
-    #[derive(Serialize)]
-    struct WsData {
-        pub reason: String
-    }
-
     let mut user_ids = Vec::new();
     for slot in slots {
         user_ids.push(slot.user_id);
@@ -465,7 +411,7 @@ pub async fn matchmaking_failed(
         ServerMessage::new(
             String::from("/matchmaking/custom-room"),
             String::from("matchmaking-failed"),
-            &WsData {reason: reason.to_string()})
+            &MatchmakingFailedDTO {reason: reason.to_string()})
     );
     ws.multi_forward(msg);
 
@@ -548,7 +494,7 @@ fn find_open_slot(custom_room: &CustomRoomDAO, slots: &[CustomRoomSlotDAO]) -> A
 
 // Ports CustomRoomSlotForm::new_from_switch_slot's validation: the target
 // position must exist in the room and not already be taken.
-async fn validate_switch_slot(custom_room_id: i32, slot_data: &SwitchSlotData, pool: &DbPool) -> AppResult<()> {
+async fn validate_switch_slot(custom_room_id: i32, slot_data: &SlotPosition, pool: &DbPool) -> AppResult<()> {
     let custom_room = custom_rooms::get_by_id(custom_room_id, pool).await
         .map_err(|_err| AppError::BadRequest(format!("Unknown custom room id: {}", custom_room_id)))?;
 
@@ -562,6 +508,26 @@ async fn validate_switch_slot(custom_room_id: i32, slot_data: &SwitchSlotData, p
     }
 }
 
+// Fetches the slots' users (for their nicknames) and builds the room DTO.
+// Errors with `RowNotFound` if a slot's user is missing.
+async fn to_dto(
+    (custom_room, slots): (CustomRoomDAO, Vec<CustomRoomSlotDAO>),
+    pool: &DbPool
+) -> DbResult<CustomRoomDTO> {
+    let user_ids: Vec<i32> = slots.iter().map(|s| s.user_id).collect();
+    let fetched_users = users::get_by_ids(&user_ids, pool).await?;
+
+    let mut pairs = Vec::with_capacity(slots.len());
+    for slot in slots {
+        match fetched_users.iter().find(|u| u.id == slot.user_id) {
+            Some(user) => pairs.push((slot, user.clone())),
+            None => return Err(sqlx::Error::RowNotFound),
+        }
+    }
+
+    Ok(CustomRoomDTO::from((custom_room, pairs)))
+}
+
 async fn send_multi_forward_message<T: Serialize>(
     ws: WebsocketLobby,
     user_id: &i32,
@@ -569,8 +535,8 @@ async fn send_multi_forward_message<T: Serialize>(
     typ: String,
     pool: &DbPool,
     data: &T
-) -> AppResult<CustomRoomDto> {
-    match CustomRoomDto::new(tuple, pool).await {
+) -> AppResult<CustomRoomDTO> {
+    match to_dto(tuple, pool).await {
         Ok(dto) => {
             let user_ids = dto.get_all_user_ids_except(&user_id);
             let msg = MultiForwardMessage::new(
