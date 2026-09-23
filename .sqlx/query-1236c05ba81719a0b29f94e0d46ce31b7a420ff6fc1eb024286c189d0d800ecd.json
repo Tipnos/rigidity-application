@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, custom_room_id, team, team_position, user_id, current_archetype as \"current_archetype: Archetypes\"\n        FROM custom_room_slots WHERE custom_room_id = $1 AND team = $2 AND team_position = $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_room_slots",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "custom_room_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_room_slots",
+            "name": "custom_room_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "team",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_room_slots",
+            "name": "team"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "team_position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_room_slots",
+            "name": "team_position"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "user_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_room_slots",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "current_archetype: Archetypes",
+        "type_info": {
+          "Custom": {
+            "name": "enum_archetypes",
+            "kind": {
+              "Enum": [
+                "leader",
+                "spiker",
+                "healer",
+                "assassin"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "custom_room_slots",
+            "name": "current_archetype"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1236c05ba81719a0b29f94e0d46ce31b7a420ff6fc1eb024286c189d0d800ecd"
+}

@@ -64,6 +64,20 @@ pub async fn get(id: i32, pool: &DbPool) -> DbResult<UserDAO> {
     .await
 }
 
+pub async fn get_by_ids(ids: &[i32], pool: &DbPool) -> DbResult<Vec<UserDAO>> {
+    sqlx::query_as!(
+        UserDAO,
+        r#"
+        SELECT id, email, nickname, hash, reset_password_hash, password_hash_expire_at,
+               created_at, steam_id, first_name, last_name, birth_date, email_confirmation_required
+        FROM users WHERE id = ANY($1)
+        "#,
+        ids
+    )
+    .fetch_all(pool)
+    .await
+}
+
 pub async fn get_by_email(email: &str, pool: &DbPool) -> DbResult<UserDAO> {
     sqlx::query_as!(
         UserDAO,

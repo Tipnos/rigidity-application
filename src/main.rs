@@ -24,15 +24,13 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn start_server() -> std::io::Result<()> {
-    let conn = app_conf::connect_database();
     let db_pool = database::connect_database().await;
-    let ws_srv = new_websocket_lobby(conn.clone()); //important if clone in closure ref not properly tracked
+    let ws_srv = new_websocket_lobby(db_pool.clone()); //important if clone in closure ref not properly tracked
     let gamelift = get_gamelift_client().await;
 
     let http_server = HttpServer::new(move || {
         App::new()
             .app_data(Data::new(gamelift.to_owned()))
-            .app_data(Data::new(conn.to_owned()))
             .app_data(Data::new(db_pool.clone()))
             .app_data(Data::new(ws_srv.clone()))
             .wrap(IdentityMiddleware::default())

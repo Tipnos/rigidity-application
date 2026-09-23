@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE custom_room_slots SET current_archetype = $1 WHERE user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "enum_archetypes",
+            "kind": {
+              "Enum": [
+                "leader",
+                "spiker",
+                "healer",
+                "assassin"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8ba48a4353e04481bbeab126b2bbbf2d0e13ed79ebff16bc6313a89e67900e23"
+}

@@ -1,0 +1,133 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, label, user_id, nb_teams, max_player_per_team,\n               current_game_mode as \"current_game_mode: GameModes\", current_map as \"current_map: Maps\", matchmaking_ticket\n        FROM custom_rooms\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "label",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "nb_teams",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "nb_teams"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "max_player_per_team",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "max_player_per_team"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "current_game_mode: GameModes",
+        "type_info": {
+          "Custom": {
+            "name": "enum_game_modes",
+            "kind": {
+              "Enum": [
+                "deathmatch",
+                "king_of_the_hill"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "current_game_mode"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "current_map: Maps",
+        "type_info": {
+          "Custom": {
+            "name": "enum_maps",
+            "kind": {
+              "Enum": [
+                "ascent",
+                "inferno",
+                "colosseum",
+                "heaven",
+                "play_ground"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "current_map"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "matchmaking_ticket",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "matchmaking_ticket"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "66330e05570a0158bb80d8cd364b43f9fc65bea26d8aa88d6deb7209f27f05eb"
+}

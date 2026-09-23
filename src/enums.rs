@@ -1,18 +1,12 @@
-use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Formatter, Result, Display};
 
-#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, DbEnum)]
-#[PgType = "enum_archetypes"]
-#[DieselType = "Enum_archetypes"]
+#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, Clone, Copy, sqlx::Type)]
+#[sqlx(type_name = "enum_archetypes", rename_all = "snake_case")]
 pub enum Archetypes {
-    #[db_rename = "leader"]
     Leader,
-    #[db_rename = "spiker"]
     Spiker,
-    #[db_rename = "healer"]
     Healer,
-    #[db_rename = "assassin"]
     Assassin,
 }
 
@@ -43,13 +37,10 @@ impl Display for Archetypes {
     }
 }
 
-#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, DbEnum)]
-#[PgType = "enum_game_modes"]
-#[DieselType = "Enum_game_modes"]
+#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, Clone, Copy, sqlx::Type)]
+#[sqlx(type_name = "enum_game_modes", rename_all = "snake_case")]
 pub enum GameModes {
-    #[db_rename = "deathmatch"]
     Deathmatch,
-    #[db_rename = "king_of_the_hill"]
     KingOfTheHill
 }
 
@@ -59,19 +50,13 @@ impl Display for GameModes {
     }
 }
 
-#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, DbEnum)]
-#[PgType = "enum_maps"]
-#[DieselType = "Enum_maps"]
+#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, Clone, Copy, sqlx::Type)]
+#[sqlx(type_name = "enum_maps", rename_all = "snake_case")]
 pub enum Maps {
-    #[db_rename = "heaven"]
     Heaven,
-    #[db_rename = "ascent"]
-    Ascent, 
-    #[db_rename = "inferno"]
+    Ascent,
     Inferno,
-    #[db_rename = "colosseum"]
     Colosseum,
-    #[db_rename = "play_ground"]
     PlayGround,
 }
 

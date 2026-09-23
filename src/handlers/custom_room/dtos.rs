@@ -1,9 +1,6 @@
 use serde::{Serialize};
-use crate::models::custom_room::{CustomRoomSlot, CustomRoom};
+use crate::database::{custom_rooms::CustomRoomDAO, custom_room_slots::CustomRoomSlotDAO, users, DbPool, DbResult};
 use crate::enums::{GameModes, Maps};
-use crate::models::user;
-use diesel::{PgConnection};
-use crate::models::ORMResult;
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -20,22 +17,28 @@ pub struct CustomRoomDto {
 }
 
 impl CustomRoomDto {
-    pub fn new(tuple: (CustomRoom, Vec<CustomRoomSlot>), conn: &PgConnection) -> ORMResult<Self> {
-        let mut slots = Vec::new();
+    pub async fn new(tuple: (CustomRoomDAO, Vec<CustomRoomSlotDAO>), pool: &DbPool) -> DbResult<Self> {
+        let (custom_room, room_slots) = tuple;
+        let user_ids: Vec<i32> = room_slots.iter().map(|s| s.user_id).collect();
+        let fetched_users = users::get_by_ids(&user_ids, pool).await?;
 
-        for slot in tuple.1 {
-            slots.push(CustomRoomSlotDto::new(slot, conn)?);
+        let mut slots = Vec::with_capacity(room_slots.len());
+        for slot in room_slots {
+            match fetched_users.iter().find(|u| u.id == slot.user_id) {
+                Some(user) => slots.push(CustomRoomSlotDto::new(slot, user.nickname.clone())),
+                None => return Err(sqlx::Error::RowNotFound),
+            }
         }
-        
+
         Ok(CustomRoomDto {
-            id: tuple.0.id,
-            label: tuple.0.label,
-            user_id: tuple.0.user_id,
-            nb_teams: tuple.0.nb_teams,
-            max_player_per_team: tuple.0.max_player_per_team,
-            game_mode: tuple.0.current_game_mode,
-            map: tuple.0.current_map,
-            matchmaking_ticket: tuple.0.matchmaking_ticket,
+            id: custom_room.id,
+            label: custom_room.label,
+            user_id: custom_room.user_id,
+            nb_teams: custom_room.nb_teams,
+            max_player_per_team: custom_room.max_player_per_team,
+            game_mode: custom_room.current_game_mode,
+            map: custom_room.current_map,
+            matchmaking_ticket: custom_room.matchmaking_ticket,
             slots: slots,
         })
     }
@@ -88,17 +91,15 @@ pub struct CustomRoomSlotDto {
 }
 
 impl CustomRoomSlotDto {
-    pub fn new(slot: CustomRoomSlot, conn: &PgConnection) -> ORMResult<Self> {
-        let user = user::get(&slot.user_id, conn)?;
-
-        Ok (CustomRoomSlotDto {
+    pub fn new(slot: CustomRoomSlotDAO, nickname: String) -> Self {
+        CustomRoomSlotDto {
             id: slot.id,
             custom_room_id: slot.custom_room_id,
             team: slot.team,
             team_position: slot.team_position,
             user_id: slot.user_id,
-            nickname: user.nickname,
+            nickname,
             archetype: slot.current_archetype.to_u32(),
-        })
+        }
     }
 }

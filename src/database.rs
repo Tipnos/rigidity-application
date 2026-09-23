@@ -1,5 +1,7 @@
 use sqlx::postgres::PgPoolOptions;
 
+pub mod custom_rooms;
+pub mod custom_room_slots;
 pub mod users;
 
 pub type DbPool = sqlx::PgPool;

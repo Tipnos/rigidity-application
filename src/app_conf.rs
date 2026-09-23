@@ -1,7 +1,4 @@
-use diesel::prelude::*;
-use diesel::r2d2::{self, ConnectionManager};
 use actix_web::{cookie::Key, middleware};
-use super::{Pool};
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 
 pub mod static_routes;
@@ -38,16 +35,6 @@ pub fn set_env() {
         "rigidity-application=debug,actix_web=info,actix_server=info",
     );
     env_logger::init();
-}
-
-#[cfg(debug_assertions)]
-pub fn connect_database() -> Pool {
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    // create db connection pool
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
-    r2d2::Pool::builder()
-        .build(manager)
-        .expect("Failed to create pool.")
 }
 
 #[cfg(debug_assertions)]
@@ -97,21 +84,6 @@ pub fn set_env() {
     std::env::var("STEAM_SECRET_ACCESS_KEY").expect("Missing STEAM_SECRET_ACCESS_KEY env variable");
 
     env_logger::init();
-}
-
-#[cfg(not(debug_assertions))]
-pub fn connect_database() -> Pool {
-    let database_url = std::env::var("POSTGRESQL_ADDON_URI").expect("POSTGRESQL_ADDON_URI must be set");
-    let max_size: u32 = std::env::var("MAX_DB_CONNS_WORKER")
-        .expect("MAX_DB_CONNS_WORKER must be set")
-        .parse()
-        .unwrap();
-    // create db connection pool
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
-    r2d2::Pool::builder()
-        .max_size(max_size)
-        .build(manager)
-        .expect("Failed to create pool.")
 }
 
 #[cfg(not(debug_assertions))]
