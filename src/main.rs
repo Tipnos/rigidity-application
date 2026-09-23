@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::routing::get;
 use rigidity_application::{
     cmd,
     services::aws::get_gamelift_client,
@@ -7,6 +7,7 @@ use rigidity_application::{
     new_websocket_lobby,
     AppState};
 use tower_http::trace::TraceLayer;
+use utoipa_swagger_ui::SwaggerUi;
 
 fn main() -> std::io::Result<()> {
     let config = app_conf::init();
@@ -37,12 +38,12 @@ async fn start_server() -> std::io::Result<()> {
         cookie_key: app_conf::cookie_key(),
     };
 
-    let app = Router::new()
+    let (api_router, api) = app_conf::openapi::router().split_for_parts();
+    let app = api_router
         .route("/ws", get(app_conf::ws_routes::get()))
-        .merge(app_conf::open_routes::get_all())
-        .merge(app_conf::api_routes::get_all())
         .merge(app_conf::aws_routes::get_all())
         .merge(app_conf::static_routes::get_all())
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 

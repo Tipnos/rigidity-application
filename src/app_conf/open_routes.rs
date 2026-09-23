@@ -1,16 +1,12 @@
-use axum::{routing::post, Router};
+use utoipa_axum::{router::OpenApiRouter, routes};
 use crate::handlers::{auth, user};
 use crate::AppState;
 
-pub fn get_all() -> Router<AppState> {
-    Router::new().nest("/api-open", Router::new()
-        .route("/password",
-            post(auth::ask_password_reset)
-                .put(auth::reset_password))
-        .route("/login", post(auth::login))
-        .route("/login-steam", post(auth::login_steam))
-        .route("/user/create", post(user::create))
-        .route("/email-confirmation",
-            post(auth::email_confirmation)
-                .put(auth::update_email_confirmation)))
+pub fn get_all() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().nest("/api-open", OpenApiRouter::new()
+        .routes(routes!(auth::ask_password_reset, auth::reset_password))
+        .routes(routes!(auth::login))
+        .routes(routes!(auth::login_steam))
+        .routes(routes!(user::create))
+        .routes(routes!(auth::email_confirmation, auth::update_email_confirmation)))
 }

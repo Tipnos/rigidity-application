@@ -28,3 +28,6 @@ time = "0.3.17"
 rand="0.8.1"
 rusoto_core = "0.48.0"
 rusoto_gamelift="0.48.0"
+utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
+utoipa-axum = "0.2"
+utoipa-swagger-ui = { version = "9", features = ["axum"] }

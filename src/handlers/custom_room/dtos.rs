@@ -2,8 +2,9 @@ use serde::{Serialize};
 use crate::database::{custom_rooms::CustomRoomDAO, custom_room_slots::CustomRoomSlotDAO, users, DbPool, DbResult};
 use crate::enums::{GameModes, Maps};
 use uuid::Uuid;
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct CustomRoomDto {
     pub id: i32,
     pub label: String,
@@ -79,7 +80,7 @@ impl CustomRoomDto {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct CustomRoomSlotDto {
     pub id: i32,
     pub custom_room_id: i32,
