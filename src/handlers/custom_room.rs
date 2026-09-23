@@ -1,15 +1,11 @@
 use crate::{enums::Archetypes, errors::{AppResult, AppError}};
 use axum::{extract::{Path, State}, http::StatusCode, response::IntoResponse, Json};
-use crate::enums::{Maps, GameModes};
-use serde::{Serialize, Deserialize};
-use utoipa::ToSchema;
 use crate::database;
+use crate::dto::input::{CustomRoomSettingsDTO, SwitchSlotDTO};
+use crate::dto::output::CustomRoomDTO;
 use crate::handlers::Identity;
 use crate::services::{custom_room as service, websocket::WebsocketLobby};
-use dtos::CustomRoomDto;
 use rusoto_gamelift::GameLiftClient;
-
-pub mod dtos;
 
 #[utoipa::path(
     get,
@@ -17,7 +13,7 @@ pub mod dtos;
     tag = "custom-room",
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "All custom rooms", body = Vec<CustomRoomDto>),
+        (status = 200, description = "All custom rooms", body = Vec<CustomRoomDTO>),
         (status = 401, description = "Not logged in", body = String),
         (status = 500, description = "Internal server error", body = String),
     )
@@ -25,29 +21,20 @@ pub mod dtos;
 pub async fn get_all(
     _: Identity,
     State(pool): State<database::DbPool>
-) -> AppResult<Json<Vec<CustomRoomDto>>> {
+) -> AppResult<Json<Vec<CustomRoomDTO>>> {
     let custom_rooms = service::get_all(&pool).await?;
 
     Ok(Json(custom_rooms))
-}
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct CustomRoomData {
-    pub label: String,
-    pub nb_teams: i32,
-    pub max_players_per_team: i32,
-    pub game_mode: Option<GameModes>,
-    pub map: Option<Maps>
 }
 
 #[utoipa::path(
     post,
     path = "/matchmaking/custom-room",
     tag = "custom-room",
-    request_body = CustomRoomData,
+    request_body = CustomRoomSettingsDTO,
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Created custom room", body = CustomRoomDto),
+        (status = 200, description = "Created custom room", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )
@@ -56,10 +43,10 @@ pub async fn create(
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>,
-    Json(create_data): Json<CustomRoomData>
+    Json(create_data): Json<CustomRoomSettingsDTO>
 ) -> AppResult<impl IntoResponse> {
     let custom_room = service::create(
-        create_data,
+        create_data.into(),
         user_id,
         ws,
         &pool).await?;
@@ -71,10 +58,10 @@ pub async fn create(
     put,
     path = "/matchmaking/custom-room",
     tag = "custom-room",
-    request_body = CustomRoomData,
+    request_body = CustomRoomSettingsDTO,
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Updated custom room owned by the user", body = CustomRoomDto),
+        (status = 200, description = "Updated custom room owned by the user", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )
@@ -83,10 +70,10 @@ pub async fn update(
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>,
-    Json(update_data): Json<CustomRoomData>
+    Json(update_data): Json<CustomRoomSettingsDTO>
 ) -> AppResult<impl IntoResponse> {
     let custom_room = service::update(
-        update_data,
+        update_data.into(),
         user_id,
         ws,
         &pool).await?;
@@ -101,7 +88,7 @@ pub async fn update(
     params(("id" = i32, Path, description = "Custom room id")),
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 200, description = "Updated custom room", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )
@@ -128,7 +115,7 @@ pub async fn join(
     params(("id" = i32, Path, description = "Custom room id")),
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 200, description = "Updated custom room", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )
@@ -172,21 +159,15 @@ pub async fn delete(
     Ok(StatusCode::OK)
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct SwitchSlotData {
-    pub team: i32,
-    pub team_position: i32,
-}
-
 #[utoipa::path(
     put,
     path = "/matchmaking/custom-room/{id}/slot",
     tag = "custom-room",
     params(("id" = i32, Path, description = "Custom room id")),
-    request_body = SwitchSlotData,
+    request_body = SwitchSlotDTO,
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 200, description = "Updated custom room", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )
@@ -196,12 +177,12 @@ pub async fn switch_slot(
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
     State(pool): State<database::DbPool>,
-    Json(position): Json<SwitchSlotData>
+    Json(position): Json<SwitchSlotDTO>
 ) -> AppResult<impl IntoResponse> {
     let custom_room = service::switch_slot(
         custom_room_id,
         user_id,
-        position,
+        position.into(),
         ws,
         &pool).await?;
 
@@ -216,7 +197,7 @@ pub async fn switch_slot(
         ("archetype" = u32, Path, description = "0 = Leader, 1 = Spiker, 2 = Healer, 3 = Assassin")),
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 200, description = "Updated custom room", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )
@@ -250,7 +231,7 @@ pub async fn switch_archetype(
         ("user_id" = i32, Path, description = "Id of the user to kick")),
     security(("cookie_auth" = [])),
     responses(
-        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 200, description = "Updated custom room", body = CustomRoomDTO),
         (status = 400, description = "Bad request", body = String),
         (status = 401, description = "Not logged in", body = String),
     )

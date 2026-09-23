@@ -1,15 +1,11 @@
 use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
 use super::{DbPool, DbResult};
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct UserDAO {
     pub id: i32,
     pub nickname: String,
-    #[serde(skip_serializing)]
-    #[schema(ignore)]
     pub created_at: NaiveDateTime,
     pub steam_id: String,
     pub first_name: String,

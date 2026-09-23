@@ -1,8 +1,6 @@
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use std::fmt::{Formatter, Result, Display};
 
-#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, Clone, Copy, sqlx::Type, ToSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Copy, sqlx::Type)]
 #[sqlx(type_name = "enum_archetypes", rename_all = "snake_case")]
 pub enum Archetypes {
     Leader,
@@ -38,7 +36,7 @@ impl Display for Archetypes {
     }
 }
 
-#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, Clone, Copy, sqlx::Type, ToSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Copy, sqlx::Type)]
 #[sqlx(type_name = "enum_game_modes", rename_all = "snake_case")]
 pub enum GameModes {
     Deathmatch,
@@ -51,7 +49,7 @@ impl Display for GameModes {
     }
 }
 
-#[derive(Eq, Hash, Deserialize, PartialEq, Serialize, Debug, Clone, Copy, sqlx::Type, ToSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Copy, sqlx::Type)]
 #[sqlx(type_name = "enum_maps", rename_all = "snake_case")]
 pub enum Maps {
     Heaven,

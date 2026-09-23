@@ -5,13 +5,11 @@ use crate::app_conf::config;
 use crate::errors::{AppResult, AppError};
 use serde::Deserialize;
 use serde_json;
-use utoipa::ToSchema;
 
 const STEAM_DOMAIN: &str = "partner.steam-api.com";
 const UNIVERSAL_STEAM_APP_ID: u64 = 480;
 
-#[derive(Deserialize, ToSchema)]
-pub struct SteamAuthData {
+pub struct SteamAuth {
     pub app_id: u64,
     pub auth_ticket: String
 }
@@ -52,7 +50,7 @@ struct Error {
     // error: ErrorResponse
 }
 
-pub async fn authenticate_user_ticket(data: &SteamAuthData) -> AppResult<u64> {
+pub async fn authenticate_user_ticket(data: &SteamAuth) -> AppResult<u64> {
     let mut params = HashMap::new();
     params.insert("key", config().steam_secret_access_key.clone());
     params.insert("appid", data.app_id.to_string());
@@ -140,7 +138,7 @@ pub async fn check_app_ownership(app_id: &u64, steam_id: &u64) -> AppResult<()> 
     
 }
 
-pub async fn authenticate_and_check_ownership(data: &SteamAuthData) -> AppResult<u64> {
+pub async fn authenticate_and_check_ownership(data: &SteamAuth) -> AppResult<u64> {
     let steam_id = authenticate_user_ticket(data).await?;
     check_app_ownership(&data.app_id, &steam_id).await?;
 
