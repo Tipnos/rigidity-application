@@ -1,5 +1,4 @@
-use actix_web::{http, http::uri::Builder};
-use awc::Client;
+use reqwest::{header, Client};
 use crate::services::make_path_and_query;
 use std::collections::HashMap;
 use crate::errors::{AppResult, AppError};
@@ -57,21 +56,16 @@ pub async fn authenticate_user_ticket(data: &SteamAuthData) -> AppResult<u64> {
     params.insert("appid", data.app_id.to_string());
     params.insert("ticket", data.auth_ticket.to_string());
 
-    let uri = Builder::new()
-        .scheme("https")
-        .authority(STEAM_DOMAIN)
-        .path_and_query(make_path_and_query(
-            "/ISteamUserAuth/AuthenticateUserTicket/v1", &params))
-        .build()
-        .unwrap();
+    let uri = format!("https://{}{}", STEAM_DOMAIN, make_path_and_query(
+        "/ISteamUserAuth/AuthenticateUserTicket/v1", &params));
     
-    let client = Client::default();
-    let mut result = client.get(uri)
-        .insert_header((http::header::CONTENT_TYPE, "application/x-www-form-urlencoded"))
+    let client = Client::new();
+    let result = client.get(uri)
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .send()
         .await?;
 
-    let body = result.body().await?;
+    let body = result.bytes().await?;
     match serde_json::from_slice::<AuthResponseBase<AuthResponse<AuthenticateUserTicketResponse>>>(&body) {
         Ok(steam_response) => {
             if steam_response.response.params.result == "OK" && !steam_response.response.params.vac_banned &&
@@ -118,20 +112,16 @@ pub async fn check_app_ownership(app_id: &u64, steam_id: &u64) -> AppResult<()> 
         params.insert("appid", app_id.to_string());
         params.insert("steamid", steam_id.to_string());
     
-        let uri = Builder::new()
-            .scheme("https")
-            .authority(STEAM_DOMAIN)
-            .path_and_query(make_path_and_query("/ISteamUser/CheckAppOwnership/v2", &params))
-            .build()
-            .unwrap();
+        let uri = format!("https://{}{}", STEAM_DOMAIN,
+            make_path_and_query("/ISteamUser/CheckAppOwnership/v2", &params));
         
-        let client = Client::default();
-        let mut response = client.get(uri)
-            .insert_header((http::header::CONTENT_TYPE, "application/x-www-form-urlencoded"))
+        let client = Client::new();
+        let response = client.get(uri)
+            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
             .send()
             .await?;
             
-        let body = response.body().await?;
+        let body = response.bytes().await?;
         match serde_json::from_slice::<OwnershipBaseResponse<OwnershipResponse>>(&body) {
             Ok(steam_response) => {
                 if steam_response.app_ownership.result == "OK" && steam_response.app_ownership.owns_app {

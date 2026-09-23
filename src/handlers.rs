@@ -1,34 +1,18 @@
-use actix_identity::Identity;
-use actix_web::{web::Data, web::Payload, HttpResponse, HttpRequest};
-use crate::errors::*;
-use crate::services::websocket::{new_connection, WebsocketLobby};
-use actix::Addr;
+use axum::{extract::{State, WebSocketUpgrade}, response::Response};
+use crate::services::websocket::{self, WebsocketLobby};
 
 pub mod auth;
 pub mod custom_room;
 pub mod aws;
 pub mod user;
+pub mod identity;
+
+pub use identity::Identity;
 
 pub async fn new_websocket(
-    req: HttpRequest,
-    stream: Payload,
-    id: Identity,
-    srv: Data<Addr<WebsocketLobby>>
-) -> AppResult<HttpResponse> {    
-    if let Ok(user_id) = id.id() {
-        match new_connection(
-            req, 
-            stream, 
-            user_id.parse::<i32>().unwrap(), 
-            srv) {
-            Ok(resp) => {
-                return Ok(resp);
-            }
-            Err(err) => {
-                return Err(AppError::InternalServerError(err.to_string()));
-            }
-        }
-    }
-
-    Err(AppError::Unauthorized)
+    Identity(user_id): Identity,
+    State(srv): State<WebsocketLobby>,
+    ws: WebSocketUpgrade,
+) -> Response {
+    websocket::new_connection(ws, user_id, srv)
 }

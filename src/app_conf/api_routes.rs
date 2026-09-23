@@ -1,39 +1,24 @@
-use actix_web::{web, Scope};
+use axum::{routing::{get, post, put}, Router};
 use crate::handlers::{custom_room, auth};
+use crate::AppState;
 
-pub fn get_all() -> Scope {
-    web::scope("/api")
-        .service(
-            web::resource("/logout")
-                .route(web::post().to(auth::logout)))
-        .service(
-            web::resource("/refresh-cookie")
-                .route(web::get().to(auth::refresh_cookie)))
-        .service(
-            web::resource("/matchmaking/custom-room")
-                .route(web::get().to(custom_room::get_all))
-                .route(web::post().to(custom_room::create))
-                .route(web::put().to(custom_room::update))
-                .route(web::delete().to(custom_room::delete)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/join")
-                .route(web::put().to(custom_room::join)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/quit")
-                .route(web::put().to(custom_room::quit)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/slot")
-                .route(web::put().to(custom_room::switch_slot)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/select-archetype/{archetype}")
-                .route(web::put().to(custom_room::switch_archetype)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/kick/{user_id}")
-                .route(web::put().to(custom_room::kick)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/start-matchmaking")
-                .route(web::put().to(custom_room::start_matchmaking)))
-        .service(
-            web::resource("/matchmaking/custom-room/{id}/stop-matchmaking")
-                .route(web::put().to(custom_room::stop_matchmaking)))
+pub fn get_all() -> Router<AppState> {
+    Router::new().nest("/api", Router::new()
+        .route("/logout", post(auth::logout))
+        .route("/refresh-cookie", get(auth::refresh_cookie))
+        .route("/matchmaking/custom-room",
+            get(custom_room::get_all)
+                .post(custom_room::create)
+                .put(custom_room::update)
+                .delete(custom_room::delete))
+        .route("/matchmaking/custom-room/{id}/join", put(custom_room::join))
+        .route("/matchmaking/custom-room/{id}/quit", put(custom_room::quit))
+        .route("/matchmaking/custom-room/{id}/slot", put(custom_room::switch_slot))
+        .route("/matchmaking/custom-room/{id}/select-archetype/{archetype}",
+            put(custom_room::switch_archetype))
+        .route("/matchmaking/custom-room/{id}/kick/{user_id}", put(custom_room::kick))
+        .route("/matchmaking/custom-room/{id}/start-matchmaking",
+            put(custom_room::start_matchmaking))
+        .route("/matchmaking/custom-room/{id}/stop-matchmaking",
+            put(custom_room::stop_matchmaking)))
 }

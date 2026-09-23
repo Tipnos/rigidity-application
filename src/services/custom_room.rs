@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use crate::database::{custom_rooms, custom_room_slots, users, DbPool};
 use crate::database::custom_rooms::CustomRoomDAO;
 use crate::database::custom_room_slots::CustomRoomSlotDAO;
-use actix::{Addr};
 use rusoto_gamelift::*;
 use crate::services::websocket::{ServerMessage, BroadcastExceptMessage, WebsocketLobby, MultiForwardMessage, ForwardMessage};
 use serde::{Serialize};
@@ -30,7 +29,7 @@ pub async fn get_all(pool: &DbPool) -> AppResult<Vec<CustomRoomDto>> {
 pub async fn create(
     create_data: CustomRoomData,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     let tuple = custom_rooms::create_with_owner_slot(
@@ -54,7 +53,7 @@ pub async fn create(
             &dto
         )
     );
-    let _ = ws.do_send(msg);
+    ws.broadcast_except(msg);
 
     Ok(dto)
 }
@@ -62,7 +61,7 @@ pub async fn create(
 pub async fn join(
     custom_room_id: i32,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     let (custom_room, slots) = custom_rooms::get_with_slots(custom_room_id, pool).await
@@ -89,7 +88,7 @@ pub async fn join(
                 &dto.slots.get(slot_dto_index))
         );
 
-        let _ = ws.do_send(msg);
+        ws.multi_forward(msg);
     } else {
         return Err(AppError::InternalServerError(String::from("Error in Custom room dtos.")))
     }
@@ -100,7 +99,7 @@ pub async fn join(
 pub async fn update(
     update_data: CustomRoomData,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     let (existing_room, _) = custom_rooms::get_by_user_id_with_slots(user_id, pool).await
@@ -132,7 +131,7 @@ pub async fn update(
 pub async fn quit(
     custom_room_id: i32,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     #[derive(Serialize)]
@@ -159,7 +158,7 @@ pub async fn quit(
 
 pub async fn delete(
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<()> {
     let tuple = custom_rooms::get_by_user_id_with_slots(user_id, pool).await
@@ -186,7 +185,7 @@ pub async fn switch_slot(
     custom_room_id: i32,
     user_id: i32,
     position: SwitchSlotData,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     #[derive(Serialize)]
@@ -228,7 +227,7 @@ pub async fn switch_archetype(
     custom_room_id: i32,
     archetype: Archetypes,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     #[derive(Serialize)]
@@ -261,7 +260,7 @@ pub async fn kick(
     custom_room_id: i32,
     user_id_to_kick: i32,
     o_user_id: Option<i32>,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<CustomRoomDto> {
     custom_room_slots::delete_by_user_id(user_id_to_kick, pool).await
@@ -297,7 +296,7 @@ pub async fn kick(
             message,
             &data)
     );
-    let _ = ws.do_send(msg);
+    ws.multi_forward(msg);
 
     Ok(dto)
 }
@@ -305,7 +304,7 @@ pub async fn kick(
 pub async fn start_matchmaking(
     custom_room_id: i32,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     gamelift: &GameLiftClient,
     pool: &DbPool
 ) -> AppResult<()> {
@@ -353,7 +352,7 @@ pub async fn start_matchmaking(
 pub async fn stop_matchmaking(
     custom_room_id: i32,
     user_id: i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     gamelift: &GameLiftClient,
     pool: &DbPool
 ) -> AppResult<()> {
@@ -395,7 +394,7 @@ pub async fn stop_matchmaking(
 
 pub async fn matchmaking_succeeded(
     data: FlexMatchData<FlexMatchSucceededDetail>,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<()> {
     let ticket_id = Uuid::parse_str(&data.detail.tickets[0].ticket_id).unwrap();
@@ -429,7 +428,7 @@ pub async fn matchmaking_succeeded(
                         String::from("matchmaking-succeeded"),
                         &ws_data)
                 );
-                let _ = ws.do_send(msg);
+                ws.forward(msg);
                 break;
             }
         }
@@ -444,7 +443,7 @@ pub async fn matchmaking_succeeded(
 pub async fn matchmaking_failed(
     reason: FlexMatchEvents,
     ticket_id: &str,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<()> {
     let uuid_ticket_id = Uuid::parse_str(ticket_id).unwrap();
@@ -468,7 +467,7 @@ pub async fn matchmaking_failed(
             String::from("matchmaking-failed"),
             &WsData {reason: reason.to_string()})
     );
-    let _ = ws.do_send(msg);
+    ws.multi_forward(msg);
 
     custom_rooms::update_ticket(custom_room.id, None, pool).await
         .map_err(|err| AppError::InternalServerError(err.to_string()))?;
@@ -478,7 +477,7 @@ pub async fn matchmaking_failed(
 
 pub async fn handle_websocket_closing(
     user_id: &i32,
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     pool: &DbPool
 ) {
     if let Ok(slot) = custom_room_slots::get_by_user_id(*user_id, pool).await {
@@ -564,7 +563,7 @@ async fn validate_switch_slot(custom_room_id: i32, slot_data: &SwitchSlotData, p
 }
 
 async fn send_multi_forward_message<T: Serialize>(
-    ws: Addr<WebsocketLobby>,
+    ws: WebsocketLobby,
     user_id: &i32,
     tuple: (CustomRoomDAO, Vec<CustomRoomSlotDAO>),
     typ: String,
@@ -581,7 +580,7 @@ async fn send_multi_forward_message<T: Serialize>(
                     typ,
                     data)
             );
-            let _ = ws.do_send(msg);
+            ws.multi_forward(msg);
 
             Ok(dto)
         },

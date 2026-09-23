@@ -1,98 +1,91 @@
-use super::messages::{Connect, Disconnect, WsMessage};
-use actix::prelude::{Actor, Context, Handler};
 use std::collections::HashMap;
-use actix::Addr;
-use super::{ws::WsConn, ForwardMessage, MultiForwardMessage, BroadcastExceptMessage};
+use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use super::{ForwardMessage, MultiForwardMessage, BroadcastExceptMessage};
 use crate::database::DbPool;
 use crate::services::custom_room::handle_websocket_closing as on_custom_room_disconnect;
 
+struct Session {
+    conn_id: u64,
+    sender: UnboundedSender<String>,
+}
+
+#[derive(Clone)]
 pub struct Lobby {
-    pub sessions: HashMap<i32, Addr<WsConn>>, //user_id to socket
-    pub pool: DbPool
+    sessions: Arc<Mutex<HashMap<i32, Session>>>, //user_id to socket
+    next_conn_id: Arc<AtomicU64>,
+    pool: DbPool
 }
 
 impl Lobby {
     pub fn new(pool: DbPool) -> Self {
         Lobby {
-            sessions: HashMap::new(),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+            next_conn_id: Arc::new(AtomicU64::new(0)),
             pool
         }
     }
-}
 
-impl Lobby {
-    pub fn send_message(&self, message: &str, id_to: &i32) {
-        if let Some(socket_recipient) = self.sessions.get(id_to) {
-            let _ = socket_recipient
-                .do_send(WsMessage(message.to_owned()));
+    // Registers a socket for the user, replacing any previous one.
+    // Returns the connection id and the receiver of messages to push to the client.
+    pub fn connect(&self, user_id: i32) -> (u64, UnboundedReceiver<String>) {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let conn_id = self.next_conn_id.fetch_add(1, Ordering::Relaxed);
+        self.sessions.lock().unwrap().insert(user_id, Session { conn_id, sender });
+
+        (conn_id, receiver)
+    }
+
+    // Only removes the session if it's still owned by this connection,
+    // so a stale socket can't evict a newer one of the same user.
+    pub fn disconnect(&self, user_id: i32, conn_id: u64) {
+        {
+            let mut sessions = self.sessions.lock().unwrap();
+            match sessions.get(&user_id) {
+                Some(session) if session.conn_id == conn_id => {
+                    sessions.remove(&user_id);
+                },
+                _ => return,
+            }
+        }
+
+        let lobby = self.clone();
+        tokio::spawn(async move {
+            on_custom_room_disconnect(&user_id, lobby.clone(), &lobby.pool).await;
+        });
+    }
+
+    pub fn forward(&self, msg: ForwardMessage) {
+        self.send_message(msg.get_message(), msg.get_id());
+    }
+
+    pub fn multi_forward(&self, msg: MultiForwardMessage) {
+        self.send_many_message(msg.get_message(), msg.get_ids());
+    }
+
+    pub fn broadcast_except(&self, msg: BroadcastExceptMessage) {
+        self.send_message_to_all_except(msg.get_message(), msg.get_ids_to_except());
+    }
+
+    fn send_message(&self, message: &str, id_to: &i32) {
+        if let Some(session) = self.sessions.lock().unwrap().get(id_to) {
+            let _ = session.sender.send(message.to_owned());
         } else {
             println!("attempting to send message but couldn't find user id.");
         }
     }
 
-    pub fn send_message_to_all_except(&self, message: &str, ids_to_except: &Vec<i32>) {
-        for s in &self.sessions {
-            if !ids_to_except.iter().any(|id| id == s.0) {
-                let _ = s.1.do_send(WsMessage(message.to_owned()));
+    fn send_message_to_all_except(&self, message: &str, ids_to_except: &Vec<i32>) {
+        for (id, session) in self.sessions.lock().unwrap().iter() {
+            if !ids_to_except.iter().any(|except| except == id) {
+                let _ = session.sender.send(message.to_owned());
             }
         }
     }
 
-    pub fn send_many_message(&self, message: &str, ids: &Vec<i32>) {
+    fn send_many_message(&self, message: &str, ids: &Vec<i32>) {
         for id in ids {
             self.send_message(message, id);
         }
-    }
-}
-
-impl Actor for Lobby {
-    type Context = Context<Self>;
-}
-
-impl Handler<Disconnect> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
-        self.sessions.remove(&msg.id);
-
-        let pool = self.pool.clone();
-        actix::spawn(async move {
-            on_custom_room_disconnect(&msg.id, msg.addr, &pool).await;
-        });
-    }
-}
-
-impl Handler<Connect> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
-        self.sessions.insert(
-            msg.self_id,
-            msg.addr,
-        );
-    }
-}
-
-impl Handler<ForwardMessage> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: ForwardMessage, _: &mut Context<Self>) -> Self::Result {
-        self.send_message(msg.get_message(), msg.get_id());
-    }
-}
-
-impl Handler<MultiForwardMessage> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: MultiForwardMessage, _: &mut Context<Self>) -> Self::Result {
-        self.send_many_message(msg.get_message(), msg.get_ids());
-    }
-}
-
-impl Handler<BroadcastExceptMessage> for Lobby {
-    type Result = ();
-
-    fn handle(&mut self, msg: BroadcastExceptMessage, _: &mut Context<Self>) -> Self::Result {
-        self.send_message_to_all_except(msg.get_message(), msg.get_ids_to_except());
     }
 }

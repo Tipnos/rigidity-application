@@ -1,7 +1,7 @@
-use actix_files;
-use actix_web::{HttpRequest, Result, HttpResponse, Scope, web};
-use actix_web::http::{StatusCode};
-use std::{fs, path::PathBuf};
+use axum::{extract::Path, http::{header, StatusCode}, response::IntoResponse, routing::get, Router};
+use tower_http::services::ServeDir;
+use std::fs;
+use crate::AppState;
 
 const AUTHORIZED_STATIC_PATHS: & [&str] = &[
     "ask_password_reset.html", 
@@ -10,25 +10,13 @@ const AUTHORIZED_STATIC_PATHS: & [&str] = &[
     "email_confirmation.html",
 ];
 
-pub fn get_all() -> Scope {
-    web::scope("/static")
-        .service(web::resource("/{html_file_path}")
-            .route(web::get().to(static_file_http_response)))
-        .service(web::resource("/assets/{filename:.*}")
-            .route(web::get().to(file)))
+pub fn get_all() -> Router<AppState> {
+    Router::new().nest("/static", Router::new()
+        .route("/{html_file_path}", get(static_file_http_response))
+        .nest_service("/assets", ServeDir::new("static/assets")))
 }
 
-async fn file(req: HttpRequest) -> Result<actix_files::NamedFile> {
-    let path: PathBuf = req.match_info().query("filename").parse().unwrap();
-    let mut prefix = "static/assets/".to_owned();
-    if let Some(str_path) = path.to_str() {
-        prefix.push_str(str_path);
-    }
-
-    Ok(actix_files::NamedFile::open(prefix)?)
-}
-
-async fn static_file_http_response(html_file_path: web::Path<String>) -> HttpResponse {
+async fn static_file_http_response(Path(html_file_path): Path<String>) -> impl IntoResponse {
     // check if it's an authorized path
     let path = html_file_path.to_string();
     let mut find = false;
@@ -42,9 +30,9 @@ async fn static_file_http_response(html_file_path: web::Path<String>) -> HttpRes
     let error_closure = move || {
         let error_message = format!("Unknown path: {}", path);
 
-        return HttpResponse::build(StatusCode::NOT_FOUND)
-            .content_type("text/html; charset=utf-8")
-            .body(error_message)
+        (StatusCode::NOT_FOUND,
+            [(header::CONTENT_TYPE, String::from("text/html; charset=utf-8"))],
+            error_message)
     };
 
     if !find {
@@ -70,9 +58,9 @@ async fn static_file_http_response(html_file_path: web::Path<String>) -> HttpRes
                 content_type.push_str("; charset=utf-8");
                 let content_type = content_type;
 
-                HttpResponse::build(StatusCode::OK)
-                    .content_type(content_type)
-                    .body(contents)
+                (StatusCode::OK,
+                    [(header::CONTENT_TYPE, content_type)],
+                    contents)
             }, Err(e) => {
                 println!("{}", e);
                 error_closure()

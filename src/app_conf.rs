@@ -1,5 +1,4 @@
-use actix_web::{cookie::Key, middleware};
-use actix_session::{storage::CookieSessionStore, SessionMiddleware};
+use axum_extra::extract::cookie::Key;
 
 pub mod static_routes;
 pub mod open_routes;
@@ -11,10 +10,8 @@ lazy_static::lazy_static! {
     pub static ref SECRET_KEY: String = std::env::var("SECRET_KEY").unwrap_or_else(|_| "0123".repeat(16));
 }
 
-pub fn middleware_cookie_session() -> SessionMiddleware<CookieSessionStore> {
-    SessionMiddleware::new(
-        CookieSessionStore::default(), 
-        Key::from(SECRET_KEY.as_bytes()))
+pub fn cookie_key() -> Key {
+    Key::from(SECRET_KEY.as_bytes())
 }
 
 #[cfg(debug_assertions)]
@@ -23,18 +20,12 @@ pub fn nb_worker() -> Option<u32> {
 }
 
 #[cfg(debug_assertions)]
-pub fn middleware_logger() -> middleware::Logger {
-    middleware::Logger::default()
-}
-
-#[cfg(debug_assertions)]
 pub fn set_env() {
     dotenv::dotenv().ok();
-    std::env::set_var(
-        "RUST_LOG",
-        "rigidity-application=debug,actix_web=info,actix_server=info",
-    );
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::new(
+            "rigidity_application=debug,tower_http=debug"))
+        .init();
 }
 
 #[cfg(debug_assertions)]
@@ -64,11 +55,6 @@ pub fn nb_worker() -> Option<u32> {
 }
 
 #[cfg(not(debug_assertions))]
-pub fn middleware_logger() -> middleware::Logger {
-    middleware::Logger::default()
-}
-
-#[cfg(not(debug_assertions))]
 pub fn set_env() {
     //check postgre URI
     std::env::var("POSTGRESQL_ADDON_URI").expect("Missing POSTGRESQL_ADDON_URI env variable.");
@@ -83,7 +69,9 @@ pub fn set_env() {
     std::env::var("SECRET_KEY").expect("Missing SECRET_KEY env variable.");
     std::env::var("STEAM_SECRET_ACCESS_KEY").expect("Missing STEAM_SECRET_ACCESS_KEY env variable");
 
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 }
 
 #[cfg(not(debug_assertions))]

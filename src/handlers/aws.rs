@@ -1,34 +1,22 @@
-use actix_web::{web, HttpRequest, web::Payload, HttpResponse};
-use awc::Client;
-use futures_util::StreamExt;
+use axum::{body::Bytes, extract::State, http::{HeaderMap, StatusCode}};
 use crate::errors::{AppError, AppResult};
 use serde_json::{from_slice};
 use serde::Deserialize;
 use crate::services::aws::*;
 use crate::services::custom_room;
-use actix::{Addr};
 use crate::database;
 use crate::services::{as_json_string, websocket::WebsocketLobby};
 
 pub async fn sns(
-    req: HttpRequest,
-    mut stream: Payload,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
+    headers: HeaderMap,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>,
+    body: Bytes
+) -> AppResult<StatusCode> {
     let error = Err(AppError::BadRequest(String::from("x-amz-sns-message-type header is unknown or missing.")));
 
-    if let Some(message_type_header)  = req
-        .headers()
-        .get(String::from("x-amz-sns-message-type")) {
+    if let Some(message_type_header)  = headers.get("x-amz-sns-message-type") {
         if let Ok(message_type) = message_type_header.to_str() {
-            let mut body = web::BytesMut::new();
-            while let Some(item) = stream.next().await {
-                match item {
-                    Ok(chunk) => body.extend_from_slice(&chunk),
-                    Err(_) => return Err(AppError::BadRequest(String::from("Corrupted body.")))
-                }
-            }
             match message_type {
                 "SubscriptionConfirmation" => {
                     return handle_sns_subscription(body).await
@@ -47,8 +35,8 @@ pub async fn sns(
 }
 
 async fn handle_sns_subscription(
-    body: web::BytesMut
-) -> AppResult<HttpResponse> {
+    body: Bytes
+) -> AppResult<StatusCode> {
     #[derive(Deserialize)]
     struct SnsData {
         #[serde(rename = "SubscribeURL")]
@@ -57,9 +45,8 @@ async fn handle_sns_subscription(
     if let Ok(obj) = from_slice::<SnsData>(&body) {
         let obj: SnsData = obj;
 
-        let client = Client::default();
-        match client.get(obj.subscribe_url).send().await {
-            Ok(_) => return Ok(HttpResponse::Ok().finish()),
+        match reqwest::get(obj.subscribe_url).await {
+            Ok(_) => return Ok(StatusCode::OK),
             Err(err) => {
                 return Err(AppError::BadRequest(err.to_string()))
             }
@@ -70,10 +57,10 @@ async fn handle_sns_subscription(
 }
 
 async fn handle_sns_notification(
-    body: web::BytesMut,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
+    body: Bytes,
+    ws: WebsocketLobby,
+    pool: database::DbPool
+) -> AppResult<StatusCode> {
     #[derive(Deserialize)]
     struct SnsData {
         #[serde(rename = "Message", with = "as_json_string")]
@@ -91,7 +78,7 @@ async fn handle_sns_notification(
                 let data = from_slice::<SnsDataSucceeded>(&body).unwrap();
                 if let Err(err) = custom_room::matchmaking_succeeded(
                     data.message,
-                    ws.get_ref().to_owned(),
+                    ws.clone(),
                     &pool
                 ).await {
                     return Err(err)
@@ -104,7 +91,7 @@ async fn handle_sns_notification(
                 if let Err(err) = custom_room::matchmaking_failed(
                     obj.message.detail.e_type,
                     ticket_id,
-                    ws.get_ref().to_owned(),
+                    ws.clone(),
                     &pool
                 ).await {
                     return Err(err)
@@ -114,7 +101,7 @@ async fn handle_sns_notification(
                 
            }
         }
-        return Ok(HttpResponse::Ok().finish())
+        return Ok(StatusCode::OK)
     }
 
     Err(AppError::BadRequest(String::from("Json body has wrong format.")))   

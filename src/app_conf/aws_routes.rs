@@ -1,9 +1,8 @@
-use actix_web::{web, Scope};
+use axum::{routing::post, Router};
 use crate::handlers::aws;
+use crate::AppState;
 
-pub fn get_all() -> Scope {
-    web::scope("/aws")
-        .service(
-            web::resource("/sns")
-                .route(web::post().to(aws::sns)))
+pub fn get_all() -> Router<AppState> {
+    Router::new().nest("/aws", Router::new()
+        .route("/sns", post(aws::sns)))
 }

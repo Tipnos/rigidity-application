@@ -1,105 +1,52 @@
-use actix::prelude::*;
-use actix::{fut, ActorContext};
-use super::messages::{Disconnect, Connect, WsMessage}; //We'll be writing this later
-use super::lobby::Lobby; // as well as this
-use actix::{Actor, Addr, Running, StreamHandler, WrapFuture};
-use actix::{AsyncContext, Handler};
-use actix_web_actors::ws;
-use actix_web_actors::ws::Message::Text;
+use axum::extract::ws::{Message, WebSocket};
+use super::lobby::Lobby;
 use std::time::{Duration, Instant};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
-pub struct WsConn {
-    lobby_addr: Addr<Lobby>,
-    hb: Instant,
-    id: i32, // user id owning the connexion
-}
+// Drives a client socket until it closes, fails or misses its heartbeat.
+pub async fn run(mut socket: WebSocket, user_id: i32, lobby: Lobby) {
+    let (conn_id, mut outgoing) = lobby.connect(user_id);
+    let mut hb = Instant::now();
+    let mut heartbeat = tokio::time::interval(HEARTBEAT_INTERVAL);
 
-impl WsConn {
-    pub fn new(id: i32, lobby: Addr<Lobby>) -> WsConn {
-        WsConn {
-            id,
-            hb: Instant::now(),
-            lobby_addr: lobby,
-        }
-    }
-
-    fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
-            if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
-                println!("Disconnecting failed heartbeat");
-                act.lobby_addr.do_send(Disconnect { id: act.id, addr: act.lobby_addr.clone()});
-                ctx.stop();
-                return;
-            }
-
-            ctx.ping(b"PING");
-        });
-    }
-}
-
-impl Actor for WsConn {
-    type Context = ws::WebsocketContext<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        self.hb(ctx);
-
-        let addr = ctx.address();
-        self.lobby_addr
-            .send(Connect {
-                addr: addr,
-                self_id: self.id,
-            })
-            .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(_res) => (),
-                    _ => ctx.stop(),
+    loop {
+        tokio::select! {
+            // incoming message from client
+            incoming = socket.recv() => {
+                match incoming {
+                    Some(Ok(Message::Ping(msg))) => {
+                        hb = Instant::now();
+                        if socket.send(Message::Pong(msg)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Some(Ok(Message::Pong(_))) => {
+                        hb = Instant::now();
+                    }
+                    Some(Ok(Message::Text(_))) | Some(Ok(Message::Binary(_))) => (), //do nothing
+                    Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
                 }
-                fut::ready(())
-            })
-            .wait(ctx);
-    }
+            }
+            // server sent a message to forward to client
+            Some(message) = outgoing.recv() => {
+                if socket.send(Message::Text(message.into())).await.is_err() {
+                    break;
+                }
+            }
+            _ = heartbeat.tick() => {
+                if Instant::now().duration_since(hb) > CLIENT_TIMEOUT {
+                    println!("Disconnecting failed heartbeat");
+                    break;
+                }
 
-    fn stopping(&mut self, _: &mut Self::Context) -> Running {
-        self.lobby_addr.do_send(Disconnect {id: self.id, addr: self.lobby_addr.clone()});
-        Running::Stop
-    }
-}
-
-// incoming message from client
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
-    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        match msg {
-            Ok(ws::Message::Ping(msg)) => {
-                self.hb = Instant::now();
-                ctx.pong(&msg);
+                if socket.send(Message::Ping("PING".into())).await.is_err() {
+                    break;
+                }
             }
-            Ok(ws::Message::Pong(_)) => {
-                self.hb = Instant::now();
-            }
-            Ok(ws::Message::Binary(_)) => (),
-            Ok(ws::Message::Close(reason)) => {
-                ctx.close(reason);
-                ctx.stop();
-            }
-            Ok(ws::Message::Continuation(_)) => {
-                ctx.stop();
-            }
-            Ok(ws::Message::Nop) => (),
-            Ok(Text(_)) => (), //do nothing
-            Err(e) => std::panic::panic_any(e),
         }
     }
-}
 
-// server sent a message to forward to client
-impl Handler<WsMessage> for WsConn {
-    type Result = ();
-
-    fn handle(&mut self, msg: WsMessage, ctx: &mut Self::Context) {
-        ctx.text(msg.0);
-    }
+    lobby.disconnect(user_id, conn_id);
 }

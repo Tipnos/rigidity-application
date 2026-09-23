@@ -1,7 +1,6 @@
-use actix_web::{http, http::uri::Builder};
 use crate::errors::{AppResult, AppError};
 use serde::{Serialize, Deserialize};
-use awc::Client;
+use reqwest::{header, Client, StatusCode};
 
 pub struct EmailService<'a> {
     pub to: &'a str,
@@ -49,23 +48,19 @@ impl<'a> EmailService<'a> {
             html_content: &self.html
         };
 
-        let uri = Builder::new()
-            .scheme("https")
-            .authority(std::env::var("EMAIL_DOMAIN")
-                .expect("EMAIL_DOMAIN must be set"))
-            .path_and_query("/v3/smtp/email")
-            .build()?;
+        let uri = format!("https://{}/v3/smtp/email", std::env::var("EMAIL_DOMAIN")
+            .expect("EMAIL_DOMAIN must be set"));
 
-        let client = Client::default();
-        let mut response = client.post(uri)
-            .insert_header((http::header::ACCEPT, "application/json"))
-            .insert_header(("api-key", std::env::var("EMAIL_KEY")
-                .expect("EMAIL_KEY must be set")))
-            .insert_header((http::header::CONTENT_TYPE, "application/json"))
-            .send_json(&email).await?;
+        let client = Client::new();
+        let response = client.post(uri)
+            .header(header::ACCEPT, "application/json")
+            .header("api-key", std::env::var("EMAIL_KEY")
+                .expect("EMAIL_KEY must be set"))
+            .json(&email)
+            .send().await?;
 
-        if response.status() != http::StatusCode::CREATED {
-            let body = response.body().await?;
+        if response.status() != StatusCode::CREATED {
+            let body = response.bytes().await?;
             match serde_json::from_slice::<EmailServiceResponseError>(&body) {
                 Ok(r) => {
                     return Err(AppError::InternalServerError(format!("Error from email service code: {}, message: {}", r.code, r.message)))
