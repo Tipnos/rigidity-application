@@ -7,7 +7,6 @@ pub mod dev_routes;
 pub mod open_routes;
 pub mod api_routes;
 pub mod ws_routes;
-pub mod aws_routes;
 pub mod openapi;
 
 /// Application configuration. Every option can be given as a CLI argument or
@@ -44,12 +43,6 @@ pub struct Config {
 
     #[arg(long, env = "STEAM_SECRET_ACCESS_KEY", hide_env_values = true)]
     pub steam_secret_access_key: String,
-
-    #[arg(long, env = "AWS_ACCESS_KEY_ID", hide_env_values = true)]
-    pub aws_access_key_id: String,
-
-    #[arg(long, env = "AWS_SECRET_ACCESS_KEY", hide_env_values = true)]
-    pub aws_secret_access_key: String,
 
     #[command(subcommand)]
     pub command: Option<Command>,

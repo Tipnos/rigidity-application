@@ -21,7 +21,6 @@ fn make_path_and_query(path: &str, params: &HashMap<&str, String>) -> String {
 
 pub mod websocket;
 pub mod custom_room;
-pub mod aws;
 pub mod steam;
 
 // Serialize and deserialize logic for dealing with nested values reprsented as

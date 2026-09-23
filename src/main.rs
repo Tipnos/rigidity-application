@@ -1,7 +1,6 @@
 use axum::routing::get;
 use rigidity_application::{
     cmd,
-    services::aws::get_gamelift_client,
     app_conf,
     database,
     new_websocket_lobby,
@@ -34,14 +33,18 @@ async fn start_server() -> std::io::Result<()> {
     let state = AppState {
         ws: new_websocket_lobby(db_pool.clone()),
         pool: db_pool,
-        gamelift: get_gamelift_client().await,
+        // TODO: a GameLift client was built here from the AWS credentials
+        // (region eu-west-1) and shared through `AppState`.
         cookie_key: app_conf::cookie_key(),
     };
 
     let (api_router, api) = app_conf::openapi::router().split_for_parts();
     let mut app = api_router
         .route("/ws", get(app_conf::ws_routes::get()))
-        .merge(app_conf::aws_routes::get_all())
+        // TODO: `POST /aws/sns` was merged here. It received AWS SNS
+        // notifications (subscription confirmation plus FlexMatch events) and
+        // passed them on to `custom_room::matchmaking_succeeded` /
+        // `custom_room::matchmaking_failed`.
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api));
 
     if app_conf::config().dev_login {

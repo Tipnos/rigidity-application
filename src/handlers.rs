@@ -3,7 +3,6 @@ use crate::services::websocket::{self, WebsocketLobby};
 
 pub mod auth;
 pub mod custom_room;
-pub mod aws;
 pub mod user;
 pub mod identity;
 

@@ -1,5 +1,4 @@
 use uuid::Uuid;
-use rusoto_gamelift::{Player, StartMatchmakingInput};
 
 use crate::enums::{Archetypes, GameModes, Maps};
 
@@ -39,28 +38,9 @@ impl CustomRoomDAO {
         *team < self.nb_teams && *team_position < self.max_player_per_team
     }
 
-    pub fn get_start_matchmaking_input(&self, tuples: &Vec<(CustomRoomSlotDAO, UserDAO)>, ticket_id: &Uuid) -> StartMatchmakingInput {
-        let mut players = Vec::new();
-
-        for (slot, user) in tuples {
-            if user.id == slot.user_id {
-                let attributes = slot.get_gamelift_attributes(&user.nickname);
-
-                players.push(Player {
-                    latency_in_ms: None,
-                    player_attributes: Some(attributes),
-                    player_id: Some(slot.user_id.to_string()),
-                    team: Some(slot.team.to_string()),
-                });
-            }
-        }
-
-        StartMatchmakingInput {
-            configuration_name: self.current_map.to_string(),
-            players: players,
-            ticket_id: Some(ticket_id.to_string()),
-        }
-    }
+    // TODO: `get_start_matchmaking_input` used to build the AWS GameLift
+    // `StartMatchmakingInput` here (one player per slot with its FlexMatch
+    // attributes, configuration_name = current map, ticket_id).
 }
 
 pub async fn get_by_id(id: i32, pool: &DbPool) -> DbResult<CustomRoomDAO> {

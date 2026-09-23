@@ -5,7 +5,6 @@ use crate::dto::input::{CustomRoomSettingsDTO, SwitchSlotDTO};
 use crate::dto::output::CustomRoomDTO;
 use crate::handlers::Identity;
 use crate::services::{custom_room as service, websocket::WebsocketLobby};
-use rusoto_gamelift::GameLiftClient;
 
 #[utoipa::path(
     get,
@@ -268,14 +267,14 @@ pub async fn start_matchmaking(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
-    State(gamelift): State<GameLiftClient>,
     State(pool): State<database::DbPool>
 ) -> AppResult<impl IntoResponse> {
+    // TODO: the GameLift client was extracted from the state and passed to the
+    // service to submit the FlexMatch ticket.
        match service::start_matchmaking(
             custom_room_id,
             user_id,
             ws,
-            &gamelift,
             &pool).await {
         Ok(_custom_room) => {
             Ok(StatusCode::OK)
@@ -302,14 +301,14 @@ pub async fn stop_matchmaking(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
-    State(gamelift): State<GameLiftClient>,
     State(pool): State<database::DbPool>
 ) -> AppResult<impl IntoResponse> {
+    // TODO: the GameLift client was extracted from the state and passed to the
+    // service to cancel the FlexMatch ticket.
     match service::stop_matchmaking(
             custom_room_id,
             user_id,
             ws,
-            &gamelift,
             &pool).await {
         Ok(_custom_room) => {
             Ok(StatusCode::OK)

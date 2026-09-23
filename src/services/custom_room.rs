@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use crate::database::{custom_rooms, custom_room_slots, users, DbPool, DbResult};
 use crate::database::custom_rooms::{CustomRoomDAO, CustomRoomSettings};
 use crate::database::custom_room_slots::{CustomRoomSlotDAO, SlotPosition};
-use rusoto_gamelift::*;
 use crate::services::websocket::{ServerMessage, BroadcastExceptMessage, WebsocketLobby, MultiForwardMessage, ForwardMessage};
 use serde::{Serialize};
 use crate::dto::output::{
@@ -12,7 +11,12 @@ use crate::dto::output::{
 use crate::errors::{AppResult, AppError};
 use crate::enums::Archetypes;
 use uuid::Uuid;
-use crate::services::aws::{FlexMatchEvents, FlexMatchData, FlexMatchSucceededDetail};
+
+// A player placed on a game server by matchmaking.
+pub struct MatchedPlayerSession {
+    pub player_id: String,
+    pub player_session_id: String,
+}
 
 pub async fn get_all(pool: &DbPool) -> AppResult<Vec<CustomRoomDTO>> {
     let tuples = custom_rooms::get_all_with_slots(pool).await
@@ -268,7 +272,6 @@ pub async fn start_matchmaking(
     custom_room_id: i32,
     user_id: i32,
     ws: WebsocketLobby,
-    gamelift: &GameLiftClient,
     pool: &DbPool
 ) -> AppResult<()> {
     let (custom_room, tuples) = custom_rooms::get_with_users(custom_room_id, pool).await
@@ -279,42 +282,35 @@ pub async fn start_matchmaking(
     }
 
     let ticket_id = Uuid::new_v4();
-    let start_matchmaking_input = custom_room.get_start_matchmaking_input(&tuples, &ticket_id);
-    match gamelift.start_matchmaking(start_matchmaking_input).await {
-        Ok(result) => {
-            if let Some(_matchmaking_ticket) = result.matchmaking_ticket {
-                custom_rooms::update_ticket(custom_room_id, Some(ticket_id), pool).await
-                    .map_err(|err| AppError::InternalServerError(err.to_string()))?;
+    // TODO: a FlexMatch ticket used to be submitted to AWS GameLift here, with
+    // one player per slot (attributes team, team_position, archetype, nickname;
+    // team = slot.team; configuration name = current map). On success the
+    // ticket was stored and the room told "start-matchmaking"; the result
+    // arrived later through SNS (see `matchmaking_succeeded` /
+    // `matchmaking_failed`).
+    custom_rooms::update_ticket(custom_room_id, Some(ticket_id), pool).await
+        .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
-                let data = &EmptyDTO{};
-                let mut slots = Vec::new();
-                for (slot, _user) in tuples {
-                    slots.push(slot);
-                }
-                send_multi_forward_message(
-                    ws,
-                    &user_id,
-                    (custom_room, slots),
-                    String::from("start-matchmaking"),
-                    pool,
-                    data).await?;
-
-                return Ok(())
-            }
-
-            Err(AppError::InternalServerError(String::from("Problem with aws matchmaking.")))
-        },
-        Err(err) => {
-            Err(AppError::BadRequest(err.to_string()))
-        }
+    let data = &EmptyDTO{};
+    let mut slots = Vec::new();
+    for (slot, _user) in tuples {
+        slots.push(slot);
     }
+    send_multi_forward_message(
+        ws,
+        &user_id,
+        (custom_room, slots),
+        String::from("start-matchmaking"),
+        pool,
+        data).await?;
+
+    Ok(())
 }
 
 pub async fn stop_matchmaking(
     custom_room_id: i32,
     user_id: i32,
     ws: WebsocketLobby,
-    gamelift: &GameLiftClient,
     pool: &DbPool
 ) -> AppResult<()> {
     let tuple = custom_rooms::get_with_slots(custom_room_id, pool).await
@@ -327,47 +323,44 @@ pub async fn stop_matchmaking(
         return Err(AppError::BadRequest(String::from("No matchmaking started for this room.")))
     }
 
-    match gamelift.stop_matchmaking(StopMatchmakingInput {
-        ticket_id: tuple.0.matchmaking_ticket.unwrap().to_string()
-    }).await {
-        Ok(_result) => {
-            custom_rooms::update_ticket(custom_room_id, None, pool).await
-                .map_err(|err| AppError::InternalServerError(err.to_string()))?;
+    // TODO: the FlexMatch ticket used to be cancelled on AWS GameLift here
+    // before clearing it.
+    custom_rooms::update_ticket(custom_room_id, None, pool).await
+        .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
-            let data = &EmptyDTO{};
-            send_multi_forward_message(
-                ws,
-                &user_id,
-                tuple,
-                String::from("stop-matchmaking"),
-                pool,
-                data).await?;
+    let data = &EmptyDTO{};
+    send_multi_forward_message(
+        ws,
+        &user_id,
+        tuple,
+        String::from("stop-matchmaking"),
+        pool,
+        data).await?;
 
-            Ok(())
-        },
-        Err(err) => {
-            Err(AppError::BadRequest(err.to_string()))
-        }
-    }
+    Ok(())
 }
 
+// TODO: this was called from the AWS SNS `MatchmakingSucceeded` FlexMatch
+// event. It sends each player their game-server connection info, then deletes
+// the room.
 pub async fn matchmaking_succeeded(
-    data: FlexMatchData<FlexMatchSucceededDetail>,
+    ticket_id: Uuid,
+    ip_address: String,
+    port: i32,
+    players: Vec<MatchedPlayerSession>,
     ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<()> {
-    let ticket_id = Uuid::parse_str(&data.detail.tickets[0].ticket_id).unwrap();
-
     let (custom_room, slots) = custom_rooms::get_by_ticket_id_with_slots(ticket_id, pool).await
         .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
     for slot in slots {
         let str_user_id = slot.user_id.to_string();
-        for player in &data.detail.game_session_info.players {
+        for player in &players {
             if player.player_id == str_user_id {
                 let ws_data = MatchmakingSucceededDTO {
-                    ip_address: data.detail.game_session_info.ip_address.clone(),
-                    port: data.detail.game_session_info.port,
+                    ip_address: ip_address.clone(),
+                    port,
                     player_id: player.player_id.clone(),
                     player_session_id: player.player_session_id.clone()
                 };
@@ -391,14 +384,15 @@ pub async fn matchmaking_succeeded(
     Ok(())
 }
 
+// TODO: this was called on the AWS SNS `MatchmakingTimedOut`,
+// `MatchmakingCancelled` and `MatchmakingFailed` FlexMatch events.
 pub async fn matchmaking_failed(
-    reason: FlexMatchEvents,
-    ticket_id: &str,
+    reason: String,
+    ticket_id: Uuid,
     ws: WebsocketLobby,
     pool: &DbPool
 ) -> AppResult<()> {
-    let uuid_ticket_id = Uuid::parse_str(ticket_id).unwrap();
-    let (custom_room, slots) = custom_rooms::get_by_ticket_id_with_slots(uuid_ticket_id, pool).await
+    let (custom_room, slots) = custom_rooms::get_by_ticket_id_with_slots(ticket_id, pool).await
         .map_err(|err| AppError::InternalServerError(err.to_string()))?;
 
     let mut user_ids = Vec::new();
@@ -411,7 +405,7 @@ pub async fn matchmaking_failed(
         ServerMessage::new(
             String::from("/matchmaking/custom-room"),
             String::from("matchmaking-failed"),
-            &MatchmakingFailedDTO {reason: reason.to_string()})
+            &MatchmakingFailedDTO {reason})
     );
     ws.multi_forward(msg);
 

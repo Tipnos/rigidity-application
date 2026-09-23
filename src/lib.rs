@@ -2,7 +2,6 @@ extern crate chrono;
 
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
-use rusoto_gamelift::GameLiftClient;
 
 pub mod app_conf;
 pub mod database;
@@ -17,7 +16,8 @@ mod errors;
 pub struct AppState {
     pub pool: database::DbPool,
     pub ws: services::websocket::WebsocketLobby,
-    pub gamelift: GameLiftClient,
+    // TODO: the state used to hold an AWS GameLift client, which the handlers
+    // pulled out to start and stop FlexMatch matchmaking.
     pub cookie_key: Key,
 }
 

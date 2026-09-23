@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use rusoto_gamelift::AttributeValue;
-
 use crate::enums::Archetypes;
 
 use super::{DbPool, DbResult};
@@ -22,37 +19,9 @@ pub struct CustomRoomSlotDAO {
     pub current_archetype: Archetypes,
 }
 
-impl CustomRoomSlotDAO {
-    pub fn get_gamelift_attributes(&self, nickname: &str) -> HashMap<String, AttributeValue> {
-        let mut attributes = HashMap::new();
-        attributes.insert(String::from("team"), AttributeValue {
-            s: None,
-            n: Some(self.team as f64),
-            sdm: None,
-            sl: None
-        });
-        attributes.insert(String::from("team_position"), AttributeValue {
-            s: None,
-            n: Some(self.team_position as f64),
-            sdm: None,
-            sl: None
-        });
-        attributes.insert(String::from("archetype"), AttributeValue {
-            s: None,
-            n: Some(self.current_archetype.to_u32() as f64),
-            sdm: None,
-            sl: None
-        });
-        attributes.insert(String::from("nickname"), AttributeValue {
-            s: Some(nickname.to_owned()),
-            n: None,
-            sdm: None,
-            sl: None
-        });
-
-        attributes
-    }
-}
+// TODO: `CustomRoomSlotDAO::get_gamelift_attributes` used to build the AWS
+// FlexMatch player attributes here (team, team_position, archetype as numbers;
+// nickname as a string).
 
 pub async fn get_by_custom_room_id(custom_room_id: i32, pool: &DbPool) -> DbResult<Vec<CustomRoomSlotDAO>> {
     sqlx::query_as!(
