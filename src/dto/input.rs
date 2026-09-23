@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 use crate::database::{custom_rooms::CustomRoomSettings, custom_room_slots::SlotPosition};
 use crate::services::steam::SteamAuth;
 use super::{GameModesDTO, MapsDTO};
@@ -8,7 +9,7 @@ use super::{GameModesDTO, MapsDTO};
 // Body of the `--dev-login` route, which is kept out of the OpenAPI spec.
 #[derive(Debug, Deserialize)]
 pub struct DevLoginDTO {
-    pub user_id: i32,
+    pub user_id: Uuid,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

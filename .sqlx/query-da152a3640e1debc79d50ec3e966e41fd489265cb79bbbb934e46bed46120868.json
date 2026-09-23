@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM custom_room_slots WHERE user_id = $1",
+  "query": "DELETE FROM custom_rooms WHERE pk = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "8badef74efe1d9dbc3d3dd47ff68d497ef90c7ebc8a9c3eb974f53cbb4307e98"
+  "hash": "da152a3640e1debc79d50ec3e966e41fd489265cb79bbbb934e46bed46120868"
 }

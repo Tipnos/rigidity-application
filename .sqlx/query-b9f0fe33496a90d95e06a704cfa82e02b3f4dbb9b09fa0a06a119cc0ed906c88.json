@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE custom_room_slots SET custom_room_id = $1, team = $2, team_position = $3 WHERE user_id = $4",
+  "query": "\n        UPDATE custom_room_slots SET custom_room_pk = $1, team = $2, team_position = $3\n        WHERE user_pk = (SELECT pk FROM users WHERE id = $4)\n        ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -22,10 +22,10 @@
             }
           }
         },
-        "Int4"
+        "Uuid"
       ]
     },
     "nullable": []
   },
-  "hash": "fce43863843b02a1682466d95f26ed77a4917db52cb0909199f59f316986c409"
+  "hash": "b9f0fe33496a90d95e06a704cfa82e02b3f4dbb9b09fa0a06a119cc0ed906c88"
 }

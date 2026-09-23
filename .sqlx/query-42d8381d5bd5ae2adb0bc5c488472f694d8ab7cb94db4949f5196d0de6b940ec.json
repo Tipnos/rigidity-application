@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO custom_room_slots (custom_room_id, team, team_position, user_id, current_archetype)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING id, custom_room_id, team, team_position, user_id, current_archetype as \"current_archetype: Archetypes\"\n        ",
+  "query": "\n        SELECT s.id, r.id AS custom_room_id, s.team, s.team_position, u.id AS user_id,\n               s.current_archetype as \"current_archetype: Archetypes\"\n        FROM custom_room_slots s\n        JOIN custom_rooms r ON r.pk = s.custom_room_pk\n        JOIN users u ON u.pk = s.user_pk\n        WHERE s.custom_room_pk = $1\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
         "name": "id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "custom_room_slots",
@@ -17,11 +17,11 @@
       {
         "ordinal": 1,
         "name": "custom_room_id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "custom_room_slots",
-            "name": "custom_room_id"
+            "table": "custom_rooms",
+            "name": "id"
           }
         }
       },
@@ -50,11 +50,11 @@
       {
         "ordinal": 4,
         "name": "user_id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "custom_room_slots",
-            "name": "user_id"
+            "table": "users",
+            "name": "id"
           }
         }
       },
@@ -84,37 +84,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int4",
-        {
-          "Custom": {
-            "name": "uint2",
-            "kind": {
-              "Domain": "Int4"
-            }
-          }
-        },
-        {
-          "Custom": {
-            "name": "uint2",
-            "kind": {
-              "Domain": "Int4"
-            }
-          }
-        },
-        "Int4",
-        {
-          "Custom": {
-            "name": "enum_archetypes",
-            "kind": {
-              "Enum": [
-                "leader",
-                "spiker",
-                "healer",
-                "assassin"
-              ]
-            }
-          }
-        }
+        "Int4"
       ]
     },
     "nullable": [
@@ -126,5 +96,5 @@
       false
     ]
   },
-  "hash": "86153cb268ac9d4d6d74f842384ac038424f14b21b119a596b901361ba536fdb"
+  "hash": "42d8381d5bd5ae2adb0bc5c488472f694d8ab7cb94db4949f5196d0de6b940ec"
 }

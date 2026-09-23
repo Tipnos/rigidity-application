@@ -37,7 +37,7 @@ pub async fn dev_login(
     State(pool): State<database::DbPool>,
     Json(data): Json<DevLoginDTO>
 ) -> AppResult<impl IntoResponse> {
-    let user = user_dao::get(data.user_id, &pool).await?;
+    let user = user_dao::get_by_id(data.user_id, &pool).await?;
     let jar = identity::login(jar, user.id);
 
     Ok((jar, Json(UserDTO::from(user))))

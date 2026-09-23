@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, custom_room_id, team, team_position, user_id, current_archetype as \"current_archetype: Archetypes\"\n        FROM custom_room_slots WHERE user_id = $1\n        ",
+  "query": "\n        SELECT s.id, r.id AS custom_room_id, s.team, s.team_position, u.id AS user_id,\n               s.current_archetype as \"current_archetype: Archetypes\"\n        FROM custom_room_slots s\n        JOIN custom_rooms r ON r.pk = s.custom_room_pk\n        JOIN users u ON u.pk = s.user_pk\n        WHERE s.custom_room_pk = $1 AND s.team = $2 AND s.team_position = $3\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
         "name": "id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "custom_room_slots",
@@ -17,11 +17,11 @@
       {
         "ordinal": 1,
         "name": "custom_room_id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "custom_room_slots",
-            "name": "custom_room_id"
+            "table": "custom_rooms",
+            "name": "id"
           }
         }
       },
@@ -50,11 +50,11 @@
       {
         "ordinal": 4,
         "name": "user_id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "custom_room_slots",
-            "name": "user_id"
+            "table": "users",
+            "name": "id"
           }
         }
       },
@@ -84,6 +84,8 @@
     ],
     "parameters": {
       "Left": [
+        "Int4",
+        "Int4",
         "Int4"
       ]
     },
@@ -96,5 +98,5 @@
       false
     ]
   },
-  "hash": "56ec926a370252e0ac01b5f0682929b74b9c2525bf95743af96e1c749c88dc4a"
+  "hash": "f8954fae403032e5e6ce947b662440814b81fc19fe13a157411e199ec949f923"
 }

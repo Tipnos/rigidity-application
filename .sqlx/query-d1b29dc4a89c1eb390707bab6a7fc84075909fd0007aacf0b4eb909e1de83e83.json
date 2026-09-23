@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM custom_room_slots WHERE user_pk = (SELECT pk FROM users WHERE id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d1b29dc4a89c1eb390707bab6a7fc84075909fd0007aacf0b4eb909e1de83e83"
+}

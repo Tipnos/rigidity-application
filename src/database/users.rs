@@ -1,10 +1,11 @@
 use chrono::NaiveDateTime;
+use uuid::Uuid;
 
 use super::{DbPool, DbResult};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct UserDAO {
-    pub id: i32,
+    pub id: Uuid,
     pub nickname: String,
     pub created_at: NaiveDateTime,
     pub steam_id: String,
@@ -13,7 +14,7 @@ pub struct UserDAO {
     pub birth_date: NaiveDateTime,
 }
 
-pub async fn get(id: i32, pool: &DbPool) -> DbResult<UserDAO> {
+pub async fn get_by_id(id: Uuid, pool: &DbPool) -> DbResult<UserDAO> {
     sqlx::query_as!(
         UserDAO,
         r#"
@@ -26,7 +27,7 @@ pub async fn get(id: i32, pool: &DbPool) -> DbResult<UserDAO> {
     .await
 }
 
-pub async fn get_by_ids(ids: &[i32], pool: &DbPool) -> DbResult<Vec<UserDAO>> {
+pub async fn get_by_ids(ids: &[Uuid], pool: &DbPool) -> DbResult<Vec<UserDAO>> {
     sqlx::query_as!(
         UserDAO,
         r#"

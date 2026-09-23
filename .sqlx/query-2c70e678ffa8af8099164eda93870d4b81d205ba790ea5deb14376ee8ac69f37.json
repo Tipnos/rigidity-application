@@ -1,12 +1,23 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, label, user_id, nb_teams, max_player_per_team,\n               current_game_mode as \"current_game_mode: GameModes\", current_map as \"current_map: Maps\", matchmaking_ticket\n        FROM custom_rooms WHERE id = $1\n        ",
+  "query": "\n        SELECT r.pk, r.id, r.label, u.id AS user_id, r.nb_teams, r.max_player_per_team,\n               r.current_game_mode as \"current_game_mode: GameModes\", r.current_map as \"current_map: Maps\", r.matchmaking_ticket\n        FROM custom_rooms r JOIN users u ON u.pk = r.user_pk\n        WHERE r.id = $1\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "pk",
         "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "pk"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "custom_rooms",
@@ -15,7 +26,7 @@
         }
       },
       {
-        "ordinal": 1,
+        "ordinal": 2,
         "name": "label",
         "type_info": "Varchar",
         "origin": {
@@ -26,18 +37,18 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "user_id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "custom_rooms",
-            "name": "user_id"
+            "table": "users",
+            "name": "id"
           }
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "nb_teams",
         "type_info": "Int4",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "max_player_per_team",
         "type_info": "Int4",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "current_game_mode: GameModes",
         "type_info": {
           "Custom": {
@@ -80,7 +91,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "current_map: Maps",
         "type_info": {
           "Custom": {
@@ -104,7 +115,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "matchmaking_ticket",
         "type_info": "Uuid",
         "origin": {
@@ -117,7 +128,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int4"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -128,8 +139,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "5c1b93a269672eb55ae2f0b14578e07200a8cb4879f26bc8b09d4776595beb90"
+  "hash": "2c70e678ffa8af8099164eda93870d4b81d205ba790ea5deb14376ee8ac69f37"
 }

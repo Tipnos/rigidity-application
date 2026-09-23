@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE custom_room_slots SET current_archetype = $1 WHERE user_id = $2",
+  "query": "\n        UPDATE custom_room_slots SET current_archetype = $1\n        WHERE user_pk = (SELECT pk FROM users WHERE id = $2)\n        ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -18,10 +18,10 @@
             }
           }
         },
-        "Int4"
+        "Uuid"
       ]
     },
     "nullable": []
   },
-  "hash": "8ba48a4353e04481bbeab126b2bbbf2d0e13ed79ebff16bc6313a89e67900e23"
+  "hash": "b172d90ab2a68a6f266e79b6cb9057318f8b644ad8f21c45ccc8a7c640260d28"
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use uuid::Uuid;
 use super::{ForwardMessage, MultiForwardMessage, BroadcastExceptMessage};
 use crate::database::DbPool;
 use crate::services::custom_room::handle_websocket_closing as on_custom_room_disconnect;
@@ -12,7 +13,7 @@ struct Session {
 
 #[derive(Clone)]
 pub struct Lobby {
-    sessions: Arc<Mutex<HashMap<i32, Session>>>, //user_id to socket
+    sessions: Arc<Mutex<HashMap<Uuid, Session>>>, //user_id to socket
     next_conn_id: Arc<AtomicU64>,
     pool: DbPool
 }
@@ -28,7 +29,7 @@ impl Lobby {
 
     // Registers a socket for the user, replacing any previous one.
     // Returns the connection id and the receiver of messages to push to the client.
-    pub fn connect(&self, user_id: i32) -> (u64, UnboundedReceiver<String>) {
+    pub fn connect(&self, user_id: Uuid) -> (u64, UnboundedReceiver<String>) {
         let (sender, receiver) = mpsc::unbounded_channel();
         let conn_id = self.next_conn_id.fetch_add(1, Ordering::Relaxed);
         self.sessions.lock().unwrap().insert(user_id, Session { conn_id, sender });
@@ -38,7 +39,7 @@ impl Lobby {
 
     // Only removes the session if it's still owned by this connection,
     // so a stale socket can't evict a newer one of the same user.
-    pub fn disconnect(&self, user_id: i32, conn_id: u64) {
+    pub fn disconnect(&self, user_id: Uuid, conn_id: u64) {
         {
             let mut sessions = self.sessions.lock().unwrap();
             match sessions.get(&user_id) {
@@ -67,7 +68,7 @@ impl Lobby {
         self.send_message_to_all_except(msg.get_message(), msg.get_ids_to_except());
     }
 
-    fn send_message(&self, message: &str, id_to: &i32) {
+    fn send_message(&self, message: &str, id_to: &Uuid) {
         if let Some(session) = self.sessions.lock().unwrap().get(id_to) {
             let _ = session.sender.send(message.to_owned());
         } else {
@@ -75,7 +76,7 @@ impl Lobby {
         }
     }
 
-    fn send_message_to_all_except(&self, message: &str, ids_to_except: &Vec<i32>) {
+    fn send_message_to_all_except(&self, message: &str, ids_to_except: &Vec<Uuid>) {
         for (id, session) in self.sessions.lock().unwrap().iter() {
             if !ids_to_except.iter().any(|except| except == id) {
                 let _ = session.sender.send(message.to_owned());
@@ -83,7 +84,7 @@ impl Lobby {
         }
     }
 
-    fn send_many_message(&self, message: &str, ids: &Vec<i32>) {
+    fn send_many_message(&self, message: &str, ids: &Vec<Uuid>) {
         for id in ids {
             self.send_message(message, id);
         }

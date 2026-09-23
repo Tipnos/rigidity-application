@@ -1,12 +1,23 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, label, user_id, nb_teams, max_player_per_team,\n               current_game_mode as \"current_game_mode: GameModes\", current_map as \"current_map: Maps\", matchmaking_ticket\n        FROM custom_rooms\n        ",
+  "query": "\n        WITH r AS (\n            INSERT INTO custom_rooms (label, user_pk, nb_teams, max_player_per_team, current_game_mode, current_map)\n            VALUES ($1, (SELECT pk FROM users WHERE id = $2), $3, $4, $5, $6)\n            RETURNING *\n        )\n        SELECT r.pk, r.id, r.label, u.id AS user_id, r.nb_teams, r.max_player_per_team,\n               r.current_game_mode as \"current_game_mode: GameModes\", r.current_map as \"current_map: Maps\", r.matchmaking_ticket\n        FROM r JOIN users u ON u.pk = r.user_pk\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "pk",
         "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "custom_rooms",
+            "name": "pk"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "custom_rooms",
@@ -15,7 +26,7 @@
         }
       },
       {
-        "ordinal": 1,
+        "ordinal": 2,
         "name": "label",
         "type_info": "Varchar",
         "origin": {
@@ -26,18 +37,18 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "user_id",
-        "type_info": "Int4",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "custom_rooms",
-            "name": "user_id"
+            "table": "users",
+            "name": "id"
           }
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "nb_teams",
         "type_info": "Int4",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "max_player_per_team",
         "type_info": "Int4",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "current_game_mode: GameModes",
         "type_info": {
           "Custom": {
@@ -80,7 +91,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "current_map: Maps",
         "type_info": {
           "Custom": {
@@ -104,7 +115,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "matchmaking_ticket",
         "type_info": "Uuid",
         "origin": {
@@ -116,9 +127,54 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Varchar",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "uint2",
+            "kind": {
+              "Domain": "Int4"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "uint2",
+            "kind": {
+              "Domain": "Int4"
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "enum_game_modes",
+            "kind": {
+              "Enum": [
+                "deathmatch",
+                "king_of_the_hill"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "enum_maps",
+            "kind": {
+              "Enum": [
+                "ascent",
+                "inferno",
+                "colosseum",
+                "heaven",
+                "play_ground"
+              ]
+            }
+          }
+        }
+      ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -129,5 +185,5 @@
       true
     ]
   },
-  "hash": "66330e05570a0158bb80d8cd364b43f9fc65bea26d8aa88d6deb7209f27f05eb"
+  "hash": "c7c343d30c0b942c56669225051db080a977464bd656e5af496d150f005334fe"
 }

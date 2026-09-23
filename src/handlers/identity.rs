@@ -1,12 +1,13 @@
 use axum::{extract::{FromRef, FromRequestParts}, http::request::Parts};
 use axum_extra::extract::cookie::{Cookie, Key, PrivateCookieJar, SameSite};
+use uuid::Uuid;
 use crate::errors::AppError;
 
 const IDENTITY_COOKIE: &str = "id";
 
-// Id of the logged in user, read from the private identity cookie.
+// Public UUID of the logged in user, read from the private identity cookie.
 // Rejects the request with 401 when the user isn't logged in.
-pub struct Identity(pub i32);
+pub struct Identity(pub Uuid);
 
 impl<S> FromRequestParts<S> for Identity
 where
@@ -20,13 +21,13 @@ where
             .map_err(|_| AppError::Unauthorized)?;
 
         jar.get(IDENTITY_COOKIE)
-            .and_then(|cookie| cookie.value().parse::<i32>().ok())
+            .and_then(|cookie| cookie.value().parse::<Uuid>().ok())
             .map(Identity)
             .ok_or(AppError::Unauthorized)
     }
 }
 
-pub fn login(jar: PrivateCookieJar, user_id: i32) -> PrivateCookieJar {
+pub fn login(jar: PrivateCookieJar, user_id: Uuid) -> PrivateCookieJar {
     let cookie = Cookie::build((IDENTITY_COOKIE, user_id.to_string()))
         .path("/")
         .http_only(true)

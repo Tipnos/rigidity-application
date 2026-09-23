@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM custom_room_slots WHERE custom_room_id = $1 FOR UPDATE",
+  "query": "SELECT pk FROM custom_room_slots WHERE custom_room_pk = $1 FOR UPDATE",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "pk",
         "type_info": "Int4",
         "origin": {
           "Table": {
             "table": "custom_room_slots",
-            "name": "id"
+            "name": "pk"
           }
         }
       }
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "f3e14ff958aa95d8c7f31d3e38270cdde83efc20c0c28c6227ee5bffbebe1ed0"
+  "hash": "af218ecec6770abdf9b418d7d0b0c4e12af77935e33b676168e0f53915e433c3"
 }
