@@ -1,23 +1,16 @@
-use actix_web::{web, Scope};
+use axum::{routing::post, Router};
 use crate::handlers::{auth, user};
+use crate::AppState;
 
-pub fn get_all() -> Scope {
-    web::scope("/api-open")
-        .service(
-            web::resource("/password")
-                .route(web::post().to(auth::ask_password_reset))
-                .route(web::put().to(auth::reset_password)))
-        .service(
-            web::resource("/login")
-                .route(web::post().to(auth::login)))
-        .service(
-            web::resource("/login-steam")
-                .route(web::post().to(auth::login_steam)))
-        .service(
-            web::resource("/user/create")
-                .route(web::post().to(user::create)))
-        .service(
-            web::resource("/email-confirmation")
-                .route(web::post().to(auth::email_confirmation))
-                .route(web::put().to(auth::update_email_confirmation)))
+pub fn get_all() -> Router<AppState> {
+    Router::new().nest("/api-open", Router::new()
+        .route("/password",
+            post(auth::ask_password_reset)
+                .put(auth::reset_password))
+        .route("/login", post(auth::login))
+        .route("/login-steam", post(auth::login_steam))
+        .route("/user/create", post(user::create))
+        .route("/email-confirmation",
+            post(auth::email_confirmation)
+                .put(auth::update_email_confirmation)))
 }

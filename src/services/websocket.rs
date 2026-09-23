@@ -1,12 +1,8 @@
-use actix_web::{web::Data, HttpResponse, Error, HttpRequest, web::Payload};
-use actix::Addr;
-use actix_web_actors::ws as actix_ws;
-use actix::prelude::{Message};
+use axum::{extract::WebSocketUpgrade, response::Response};
 use serde::{Serialize};
 
 mod ws;
 mod lobby;
-mod messages;
 
 pub type WebsocketLobby = lobby::Lobby;
 
@@ -31,8 +27,6 @@ impl<'a, T: Serialize> ServerMessage<'a, T> {
     }
 } 
 
-#[derive(Message)]
-#[rtype(result = "()")]
 pub struct ForwardMessage {
     id: i32,
     message: String,
@@ -55,8 +49,6 @@ impl ForwardMessage {
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
 pub struct MultiForwardMessage {
     ids: Vec<i32>,
     message: String,
@@ -79,8 +71,6 @@ impl MultiForwardMessage {
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
 pub struct BroadcastExceptMessage {
     ids_to_except: Vec<i32>,
     message: String,
@@ -104,16 +94,9 @@ impl BroadcastExceptMessage {
 }
 
 pub fn new_connection(
-    req: HttpRequest, 
-    stream: Payload, 
-    user_id: i32, 
-    srv: Data<Addr<WebsocketLobby>>
-) -> Result<HttpResponse, Error> {
-    let websocket = ws::WsConn::new(
-        user_id,
-        srv.get_ref().clone(),
-    );
-    
-    let resp = actix_ws::start(websocket, &req, stream)?;
-    Ok(resp)
+    upgrade: WebSocketUpgrade,
+    user_id: i32,
+    lobby: WebsocketLobby
+) -> Response {
+    upgrade.on_upgrade(move |socket| ws::run(socket, user_id, lobby))
 }

@@ -1,22 +1,22 @@
 use crate::{enums::Archetypes, errors::{AppResult, AppError}};
-use actix_web::{HttpResponse, web, web::Path};
+use axum::{extract::{Path, State}, http::StatusCode, response::IntoResponse, Json};
 use crate::enums::{Maps, GameModes};
 use serde::{Serialize, Deserialize};
 use crate::database;
-use actix_identity::Identity;
+use crate::handlers::Identity;
 use crate::services::{custom_room as service, websocket::WebsocketLobby};
-use actix::{Addr};
+use dtos::CustomRoomDto;
 use rusoto_gamelift::GameLiftClient;
 
 pub mod dtos;
 
 pub async fn get_all(
     _: Identity,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
+    State(pool): State<database::DbPool>
+) -> AppResult<Json<Vec<CustomRoomDto>>> {
     let custom_rooms = service::get_all(&pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_rooms))
+    Ok(Json(custom_rooms))
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,81 +29,76 @@ pub struct CustomRoomData {
 }
 
 pub async fn create(
-    create_data: web::Json<CustomRoomData>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>,
+    Json(create_data): Json<CustomRoomData>
+) -> AppResult<impl IntoResponse> {
     let custom_room = service::create(
-        create_data.into_inner(),
-        user_id.parse::<i32>().unwrap(),
-        ws.get_ref().to_owned(),
+        create_data,
+        user_id,
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_room))
+    Ok(Json(custom_room))
 }
 
 pub async fn update(
-    update_data: web::Json<CustomRoomData>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>,
+    Json(update_data): Json<CustomRoomData>
+) -> AppResult<impl IntoResponse> {
     let custom_room = service::update(
-        update_data.into_inner(),
-        user_id.parse::<i32>().unwrap(),
-        ws.get_ref().to_owned(),
+        update_data,
+        user_id,
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_room))
+    Ok(Json(custom_room))
 }
 
 pub async fn join(
-   custom_room_id: Path<i32>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Path(custom_room_id): Path<i32>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
     let custom_room = service::join(
-        custom_room_id.into_inner(),
-        user_id.parse::<i32>().unwrap(),
-        ws.get_ref().to_owned(),
+        custom_room_id,
+        user_id,
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_room))
+    Ok(Json(custom_room))
 }
 
 pub async fn quit(
-    custom_room_id: Path<i32>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Path(custom_room_id): Path<i32>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
     let custom_room = service::quit(
-        custom_room_id.into_inner(),
-        user_id.parse::<i32>().unwrap(),
-        ws.get_ref().to_owned(),
+        custom_room_id,
+        user_id,
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_room))
+    Ok(Json(custom_room))
 }
 
 pub async fn delete(
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
     service::delete(
-        user_id.parse::<i32>().unwrap(),
-        ws.get_ref().to_owned(),
+        user_id,
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().finish())
+    Ok(StatusCode::OK)
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,81 +108,74 @@ pub struct SwitchSlotData {
 }
 
 pub async fn switch_slot(
-    custom_room_id: Path<i32>,
-    id: Identity,
-    position: web::Json<SwitchSlotData>,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Path(custom_room_id): Path<i32>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>,
+    Json(position): Json<SwitchSlotData>
+) -> AppResult<impl IntoResponse> {
     let custom_room = service::switch_slot(
-        custom_room_id.into_inner(),
-        user_id.parse::<i32>().unwrap(),
-        position.into_inner(),
-        ws.get_ref().to_owned(),
+        custom_room_id,
+        user_id,
+        position,
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_room))
+    Ok(Json(custom_room))
 }
 
 pub async fn switch_archetype(
-    param: Path<(i32, u32)>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
-    let (custom_room_id, archetype_id) = param.into_inner();
-
+    Path((custom_room_id, archetype_id)): Path<(i32, u32)>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
     match Archetypes::from_u32(archetype_id) {
         Some(archetype) => {
             let custom_room = service::switch_archetype(
                 custom_room_id,
                 archetype,
-                user_id.parse::<i32>().unwrap(),
-                ws.get_ref().to_owned(),
+                user_id,
+                ws,
                 &pool).await?;
 
-            Ok(HttpResponse::Ok().json(custom_room))
+            Ok(Json(custom_room))
         },
         None => Err(AppError::BadRequest(format!("Unknown archetype id: {}", archetype_id)))
     }
 }
 
 pub async fn kick(
-    param: Path<(i32, i32)>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
-    let (custom_room_id, user_id_to_kick) = param.into_inner();
+    Path((custom_room_id, user_id_to_kick)): Path<(i32, i32)>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
     let custom_room = service::kick(
         custom_room_id,
         user_id_to_kick,
-        Some(user_id.parse::<i32>().unwrap()),
-        ws.get_ref().to_owned(),
+        Some(user_id),
+        ws,
         &pool).await?;
 
-    Ok(HttpResponse::Ok().json(custom_room))
+    Ok(Json(custom_room))
 }
 
 pub async fn start_matchmaking(
-    custom_room_id: Path<i32>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    gamelift: web::Data<GameLiftClient>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Path(custom_room_id): Path<i32>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(gamelift): State<GameLiftClient>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
        match service::start_matchmaking(
-            custom_room_id.into_inner(),
-            user_id.parse::<i32>().unwrap(),
-            ws.get_ref().to_owned(),
-            gamelift.get_ref(),
+            custom_room_id,
+            user_id,
+            ws,
+            &gamelift,
             &pool).await {
         Ok(_custom_room) => {
-            Ok(HttpResponse::Ok().finish())
+            Ok(StatusCode::OK)
         }
         Err(err) => {
             Err(err)
@@ -196,21 +184,20 @@ pub async fn start_matchmaking(
 }
 
 pub async fn stop_matchmaking(
-    custom_room_id: Path<i32>,
-    id: Identity,
-    ws: web::Data<Addr<WebsocketLobby>>,
-    gamelift: web::Data<GameLiftClient>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let user_id = id.id().unwrap();
+    Path(custom_room_id): Path<i32>,
+    Identity(user_id): Identity,
+    State(ws): State<WebsocketLobby>,
+    State(gamelift): State<GameLiftClient>,
+    State(pool): State<database::DbPool>
+) -> AppResult<impl IntoResponse> {
     match service::stop_matchmaking(
-            custom_room_id.into_inner(),
-            user_id.parse::<i32>().unwrap(),
-            ws.get_ref().to_owned(),
-            gamelift.get_ref(),
+            custom_room_id,
+            user_id,
+            ws,
+            &gamelift,
             &pool).await {
         Ok(_custom_room) => {
-            Ok(HttpResponse::Ok().finish())
+            Ok(StatusCode::OK)
         }
         Err(err) => {
             Err(err)

@@ -1,6 +1,7 @@
-use actix_web::{web, Route};
+use axum::routing::{get as get_method, MethodRouter};
 use crate::handlers;
+use crate::AppState;
 
-pub fn get() -> Route {
-    web::get().to(handlers::new_websocket)
+pub fn get() -> MethodRouter<AppState> {
+    get_method(handlers::new_websocket)
 }

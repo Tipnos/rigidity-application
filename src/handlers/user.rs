@@ -1,6 +1,6 @@
 use serde::{Deserialize};
 use crate::chrono::{DateTime, Utc};
-use actix_web::{HttpResponse, web};
+use axum::{extract::State, Json};
 use crate::database::{self, users as user_dao};
 use crate::{errors::{AppResult, AppError}};
 use crate::services::{steam, auth as auth_service};
@@ -16,11 +16,10 @@ pub struct CreateUserData {
 }
 
 pub async fn create(
-    create_data: web::Json<CreateUserData>,
-    pool: web::Data<database::DbPool>
-) -> AppResult<HttpResponse> {
-    let steam_id = auth_service::steam_authenticate_and_ownership_check(&create_data.auth).await?;
-    let data = create_data.into_inner();
+    State(pool): State<database::DbPool>,
+    Json(data): Json<CreateUserData>
+) -> AppResult<Json<user_dao::UserDAO>> {
+    let steam_id = auth_service::steam_authenticate_and_ownership_check(&data.auth).await?;
     let email_confirmation_hash = auth_service::new_reset_password_hash()?;
 
     let (user, expire_timestamp) = user_dao::create(
@@ -38,7 +37,7 @@ pub async fn create(
     match &user.reset_password_hash {
         Some(hash) => {
             let _r = auth_service::send_confirmation_email(&user.email, expire_timestamp, &hash).await;
-            Ok(HttpResponse::Ok().json(user))
+            Ok(Json(user))
         }
         None => return Err(AppError::InternalServerError(
             format!("Reset password hash was not set up properly.")))

@@ -7,7 +7,6 @@ use crate::services::email::EmailService;
 use chrono::{Utc, NaiveDateTime};
 use crate::database::{self, users as user_dao};
 use crate::services::steam;
-use actix_web::web;
 
 pub fn new_reset_password_hash() -> AppResult<String> {
     let rng = rand::thread_rng().gen::<i64>().to_string();
@@ -71,8 +70,8 @@ pub async fn email_confirmation(hash: &str, pool: &database::DbPool) -> AppResul
 }
 
 pub async fn update_email_confirmation(
-    email: String, steam_id: u64, pool: web::Data<database::DbPool>) -> AppResult<()> {
-    let user = user_dao::get_by_steam_id(&steam_id.to_string(), &pool).await?;
+    email: String, steam_id: u64, pool: &database::DbPool) -> AppResult<()> {
+    let user = user_dao::get_by_steam_id(&steam_id.to_string(), pool).await?;
 
     if !user.email_confirmation_required {
         return Err(AppError::Forbidden);
@@ -80,7 +79,7 @@ pub async fn update_email_confirmation(
 
     let email_confirmation_hash = new_reset_password_hash()?;
     let (_user, expire_time_stamp) = user_dao::update_email(
-        &email, &steam_id, &email_confirmation_hash, &pool).await?;
+        &email, &steam_id, &email_confirmation_hash, pool).await?;
     send_confirmation_email(&email, expire_time_stamp, &email_confirmation_hash).await?;
 
     Ok(())

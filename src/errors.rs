@@ -1,9 +1,8 @@
-use actix_web::{error::{ResponseError, PayloadError}, HttpResponse};
+use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
 use derive_more::Display;
 use std::convert::From;
 use serde_json;
 use serde::{Serialize};
-use awc::error::{SendRequestError, HttpError};
 
 pub type AppResult<R> = Result<R, AppError>;
 
@@ -25,24 +24,23 @@ pub enum AppError {
     Forbidden,
 }
 
-// impl ResponseError trait allows to convert our errors into http responses with appropriate data
-impl ResponseError for AppError {
-    fn error_response(&self) -> HttpResponse {
+// impl IntoResponse allows to convert our errors into http responses with appropriate data
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
         match self {
-            AppError::ServiceUnavailable(ref message) => HttpResponse::ServiceUnavailable()
-                .json(message),
-            AppError::InternalServerError(ref trace) => {
-                HttpResponse::InternalServerError()
-                .json(trace)
+            AppError::ServiceUnavailable(message) => (StatusCode::SERVICE_UNAVAILABLE,
+                Json(message)).into_response(),
+            AppError::InternalServerError(trace) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(trace)).into_response()
             }
-            AppError::BadRequest(ref message) => {
-                HttpResponse::BadRequest().json(message)
+            AppError::BadRequest(message) => {
+                (StatusCode::BAD_REQUEST, Json(message)).into_response()
             }
             AppError::Unauthorized => {
-                HttpResponse::Unauthorized().json("Unauthorized")
+                (StatusCode::UNAUTHORIZED, Json("Unauthorized")).into_response()
             }
             AppError::Forbidden => {
-                HttpResponse::Forbidden().json("Forbidden")
+                (StatusCode::FORBIDDEN, Json("Forbidden")).into_response()
             }
         }
     }
@@ -54,20 +52,14 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
-impl From<PayloadError> for AppError {
-    fn from(error: PayloadError) -> AppError {
-        AppError::InternalServerError(format!("Payload error. {}", error.to_string()))
-    }
-}
-
-impl From<SendRequestError> for AppError {
-    fn from(error: SendRequestError) -> AppError {
+impl From<reqwest::Error> for AppError {
+    fn from(error: reqwest::Error) -> AppError {
         AppError::BadRequest(format!("A request send by the server has failed. {}", error.to_string()))
     }
 }
 
-impl From<HttpError> for AppError {
-    fn from(error: HttpError) -> AppError {
+impl From<axum::http::Error> for AppError {
+    fn from(error: axum::http::Error) -> AppError {
         AppError::InternalServerError(format!("A request build by the server has failed. {}", error.to_string()))
     }
 }
