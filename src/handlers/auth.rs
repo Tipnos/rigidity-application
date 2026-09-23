@@ -1,6 +1,7 @@
 use axum::{extract::State, http::{header, StatusCode}, response::IntoResponse, Json};
 use axum_extra::extract::cookie::PrivateCookieJar;
 use serde::Deserialize;
+use utoipa::ToSchema;
 use crate::errors::{AppResult, AppError};
 use crate::database::{self, users as user_dao};
 use crate::services::{email::EmailService, steam::SteamAuthData};
@@ -9,12 +10,23 @@ use crate::app_conf::get_base_url;
 use crate::services::{steam, auth as auth_service};
 use super::identity::{self, Identity};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AuthData {
     pub email: String,
     pub password: String
 }
 
+#[utoipa::path(
+    post,
+    path = "/login",
+    tag = "auth",
+    request_body = AuthData,
+    responses(
+        (status = 200, description = "Logged in, identity cookie set", body = user_dao::UserDAO),
+        (status = 400, description = "Bad request", body = String),
+        (status = 403, description = "Forbidden", body = String),
+    )
+)]
 pub async fn login(
     jar: PrivateCookieJar,
     State(pool): State<database::DbPool>,
@@ -49,6 +61,17 @@ async fn t_login(
     Err(AppError::BadRequest(String::from("Incorrect password.")))
 }
 
+#[utoipa::path(
+    post,
+    path = "/login-steam",
+    tag = "auth",
+    request_body = SteamAuthData,
+    responses(
+        (status = 200, description = "Logged in, identity cookie set", body = user_dao::UserDAO),
+        (status = 403, description = "Email confirmation required", body = user_dao::UserDAO),
+        (status = 400, description = "Bad request", body = String),
+    )
+)]
 pub async fn login_steam(
     jar: PrivateCookieJar,
     State(pool): State<database::DbPool>,
@@ -67,6 +90,16 @@ pub async fn login_steam(
     Ok((StatusCode::FORBIDDEN, jar, Json(user)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/logout",
+    tag = "auth",
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Logged out, identity cookie removed"),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn logout(
     _: Identity,
     jar: PrivateCookieJar,
@@ -74,11 +107,22 @@ pub async fn logout(
     Ok((identity::logout(jar), StatusCode::OK))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AskPassData {
     pub email: String
 }
 
+#[utoipa::path(
+    post,
+    path = "/password",
+    tag = "auth",
+    request_body = AskPassData,
+    responses(
+        (status = 200, description = "Password reset email sent"),
+        (status = 500, description = "Internal server error", body = String),
+        (status = 503, description = "Service unavailable", body = String),
+    )
+)]
 pub async fn ask_password_reset(
     State(pool): State<database::DbPool>,
     Json(data): Json<AskPassData>
@@ -128,12 +172,23 @@ async fn t_ask_password_reset(
     } 
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ResetPassData {
     pub hash: String,
     pub new_password: String
 }
 
+#[utoipa::path(
+    put,
+    path = "/password",
+    tag = "auth",
+    request_body = ResetPassData,
+    responses(
+        (status = 303, description = "Password updated, redirects to the login page"),
+        (status = 400, description = "Bad request", body = String),
+        (status = 500, description = "Internal server error", body = String),
+    )
+)]
 pub async fn reset_password(
     State(pool): State<database::DbPool>,
     Json(data): Json<ResetPassData>
@@ -156,6 +211,16 @@ async fn t_reset_password(
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/refresh-cookie",
+    tag = "auth",
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Identity cookie refreshed"),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn refresh_cookie(
     Identity(user_id): Identity,
     jar: PrivateCookieJar,
@@ -165,11 +230,21 @@ pub async fn refresh_cookie(
     Ok((jar, StatusCode::OK))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct EmailConfirmationData {
     pub hash: String
 }
 
+#[utoipa::path(
+    post,
+    path = "/email-confirmation",
+    tag = "auth",
+    request_body = EmailConfirmationData,
+    responses(
+        (status = 200, description = "Email confirmed"),
+        (status = 400, description = "Bad request", body = String),
+    )
+)]
 pub async fn email_confirmation(
     State(pool): State<database::DbPool>,
     Json(data): Json<EmailConfirmationData>
@@ -179,12 +254,22 @@ pub async fn email_confirmation(
     Ok(StatusCode::OK)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct UpdateEmailConfirmationData {
     pub email: String,
     pub auth: steam::SteamAuthData
 }
 
+#[utoipa::path(
+    put,
+    path = "/email-confirmation",
+    tag = "auth",
+    request_body = UpdateEmailConfirmationData,
+    responses(
+        (status = 200, description = "Email updated and confirmation email sent"),
+        (status = 400, description = "Bad request", body = String),
+    )
+)]
 pub async fn update_email_confirmation(
     State(pool): State<database::DbPool>,
     Json(data): Json<UpdateEmailConfirmationData>

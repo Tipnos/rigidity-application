@@ -2,6 +2,7 @@ use crate::{enums::Archetypes, errors::{AppResult, AppError}};
 use axum::{extract::{Path, State}, http::StatusCode, response::IntoResponse, Json};
 use crate::enums::{Maps, GameModes};
 use serde::{Serialize, Deserialize};
+use utoipa::ToSchema;
 use crate::database;
 use crate::handlers::Identity;
 use crate::services::{custom_room as service, websocket::WebsocketLobby};
@@ -10,6 +11,17 @@ use rusoto_gamelift::GameLiftClient;
 
 pub mod dtos;
 
+#[utoipa::path(
+    get,
+    path = "/matchmaking/custom-room",
+    tag = "custom-room",
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "All custom rooms", body = Vec<CustomRoomDto>),
+        (status = 401, description = "Not logged in", body = String),
+        (status = 500, description = "Internal server error", body = String),
+    )
+)]
 pub async fn get_all(
     _: Identity,
     State(pool): State<database::DbPool>
@@ -19,7 +31,7 @@ pub async fn get_all(
     Ok(Json(custom_rooms))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CustomRoomData {
     pub label: String,
     pub nb_teams: i32,
@@ -28,6 +40,18 @@ pub struct CustomRoomData {
     pub map: Option<Maps>
 }
 
+#[utoipa::path(
+    post,
+    path = "/matchmaking/custom-room",
+    tag = "custom-room",
+    request_body = CustomRoomData,
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Created custom room", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn create(
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
@@ -43,6 +67,18 @@ pub async fn create(
     Ok(Json(custom_room))
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room",
+    tag = "custom-room",
+    request_body = CustomRoomData,
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Updated custom room owned by the user", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn update(
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
@@ -58,6 +94,18 @@ pub async fn update(
     Ok(Json(custom_room))
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/join",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id")),
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn join(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,
@@ -73,6 +121,18 @@ pub async fn join(
     Ok(Json(custom_room))
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/quit",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id")),
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn quit(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,
@@ -88,6 +148,17 @@ pub async fn quit(
     Ok(Json(custom_room))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/matchmaking/custom-room",
+    tag = "custom-room",
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Custom room owned by the user deleted"),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn delete(
     Identity(user_id): Identity,
     State(ws): State<WebsocketLobby>,
@@ -101,12 +172,25 @@ pub async fn delete(
     Ok(StatusCode::OK)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct SwitchSlotData {
     pub team: i32,
     pub team_position: i32,
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/slot",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id")),
+    request_body = SwitchSlotData,
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn switch_slot(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,
@@ -124,6 +208,19 @@ pub async fn switch_slot(
     Ok(Json(custom_room))
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/select-archetype/{archetype}",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id"),
+        ("archetype" = u32, Path, description = "0 = Leader, 1 = Spiker, 2 = Healer, 3 = Assassin")),
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn switch_archetype(
     Path((custom_room_id, archetype_id)): Path<(i32, u32)>,
     Identity(user_id): Identity,
@@ -145,6 +242,19 @@ pub async fn switch_archetype(
     }
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/kick/{user_id}",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id"),
+        ("user_id" = i32, Path, description = "Id of the user to kick")),
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Updated custom room", body = CustomRoomDto),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn kick(
     Path((custom_room_id, user_id_to_kick)): Path<(i32, i32)>,
     Identity(user_id): Identity,
@@ -161,6 +271,18 @@ pub async fn kick(
     Ok(Json(custom_room))
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/start-matchmaking",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id")),
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Matchmaking started"),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn start_matchmaking(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,
@@ -183,6 +305,18 @@ pub async fn start_matchmaking(
     }
 }
 
+#[utoipa::path(
+    put,
+    path = "/matchmaking/custom-room/{id}/stop-matchmaking",
+    tag = "custom-room",
+    params(("id" = i32, Path, description = "Custom room id")),
+    security(("cookie_auth" = [])),
+    responses(
+        (status = 200, description = "Matchmaking stopped"),
+        (status = 400, description = "Bad request", body = String),
+        (status = 401, description = "Not logged in", body = String),
+    )
+)]
 pub async fn stop_matchmaking(
     Path(custom_room_id): Path<i32>,
     Identity(user_id): Identity,

@@ -5,11 +5,12 @@ use crate::app_conf::config;
 use crate::errors::{AppResult, AppError};
 use serde::Deserialize;
 use serde_json;
+use utoipa::ToSchema;
 
 const STEAM_DOMAIN: &str = "partner.steam-api.com";
 const UNIVERSAL_STEAM_APP_ID: u64 = 480;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct SteamAuthData {
     pub app_id: u64,
     pub auth_ticket: String

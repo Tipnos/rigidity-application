@@ -1,29 +1,35 @@
 use chrono::{Duration, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::app_conf::config;
 use crate::errors::{AppError, AppResult};
 
 use super::{DbPool, DbResult};
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct UserDAO {
     pub id: i32,
     pub email: String,
     pub nickname: String,
     #[serde(skip_serializing)]
+    #[schema(ignore)]
     pub hash: String,
     #[serde(skip_serializing)]
+    #[schema(ignore)]
     pub reset_password_hash: Option<String>,
     #[serde(skip_serializing)]
+    #[schema(ignore)]
     pub password_hash_expire_at: Option<NaiveDateTime>,
     #[serde(skip_serializing)]
+    #[schema(ignore)]
     pub created_at: NaiveDateTime,
     pub steam_id: String,
     pub first_name: String,
     pub last_name: String,
     pub birth_date: NaiveDateTime,
     #[serde(skip_serializing)]
+    #[schema(ignore)]
     pub email_confirmation_required: bool,
 }
 

@@ -8,6 +8,7 @@ pub mod open_routes;
 pub mod api_routes;
 pub mod ws_routes;
 pub mod aws_routes;
+pub mod openapi;
 
 /// Application configuration. Every option can be given as a CLI argument or
 /// through its environment variable. Defaults target local development.

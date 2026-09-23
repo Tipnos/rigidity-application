@@ -1,11 +1,12 @@
 use serde::{Deserialize};
+use utoipa::ToSchema;
 use crate::chrono::{DateTime, Utc};
 use axum::{extract::State, Json};
 use crate::database::{self, users as user_dao};
 use crate::{errors::{AppResult, AppError}};
 use crate::services::{steam, auth as auth_service};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct CreateUserData {
     pub email: String,
     pub nickname: String,
@@ -15,6 +16,17 @@ pub struct CreateUserData {
     pub auth: steam::SteamAuthData,
 }
 
+#[utoipa::path(
+    post,
+    path = "/user/create",
+    tag = "user",
+    request_body = CreateUserData,
+    responses(
+        (status = 200, description = "User created, confirmation email sent", body = user_dao::UserDAO),
+        (status = 400, description = "Bad request", body = String),
+        (status = 500, description = "Internal server error", body = String),
+    )
+)]
 pub async fn create(
     State(pool): State<database::DbPool>,
     Json(data): Json<CreateUserData>
